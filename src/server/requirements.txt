@@ -1,0 +1,6 @@
+litestar==2.7.0
+Requests==2.31.0
+trafilatura==1.7.0
+transformers==4.37.2
+uuid7==0.1.0
+wn==0.9.5
