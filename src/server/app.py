@@ -1,51 +1,69 @@
 import logging
-from utils.logging import FORMAT
+from utils.logging import CONFIG, FORMAT
 
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-import requests
-import importlib
 from litestar import Litestar, post
-
-from dtos import ExtractionQuery, ExtractionEvent, Relation, EvaluationEvent
 
 from parse import parse
 from filter import filter
+from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
+from dtos import (
+    ExtractionQuery,
+    ExtractionEvent,
+    Relation,
+    EvaluationEvent,
+)
 
 
 @post("/process/")
-async def processHandler(data: ExtractionQuery) -> list[EvaluationEvent]:
+async def processHandler(data: ExtractionQuery) -> EvaluationEvent | None:
+    """Process the given extraction query.
 
-    # Step 1: Parse the webpage data into paragraphs
-    parsed_webpage_data = parse(data.event.webpage_data)
-    paragraphs = parsed_webpage_data.content.split("\n")
-    actions = parsed_webpage_data.actions
+    Note:
+        Use `LITESTAR_APP=app:app litestar run --port 8000 --pdb --reload`
+        to start the server.
 
-    # Step 2: Filter relevant paragraphs
-    filtered_paragraphs = filter(paragraphs, [t.attribute for t in data.targets])
+    Args:
+        data (ExtractionQuery): The extraction query to process.
 
-    # Step 3: Extract relations from the filtered paragraphs
+    Returns:
+        list[EvaluationEvent] | None: The evaluation events or None if the
+        process failed.
+    """
+
+    # * Step 1: Parse the webpage data into paragraphs
+    webpage = parse(data.event.webpage_data)
+
+    if webpage is None or webpage.content is None:
+        raise Exception("Invalid webpage data.")
+
+    # * Step 2: Filter relevant elements
+    relevant_elements = filter(webpage.contentHTML, data.target)
+
+    # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []
 
-    for paragraph in filtered_paragraphs:
-        # Extract relations using the app_extract litestar instance
-        response = requests.post("http://localhost:8001/extract/", data=paragraph)
+    # TODO: possibly use HTTP 102 or WebSocket to send updates for long requests
+    # Extract relations using the app_extract litestar instance
+    relations_mrebel = extract_mrebel(relevant_elements, data.target)
+    # Extract relations using the LLM APIs
+    relations_llm = extract_llm(relevant_elements, data.target)
 
-        relations.append(
-            Relation(**response.json())  # unpack json response to Relation object
-        )
+    if relations_mrebel is None and relations_llm is None:
+        raise Exception("Failed to extract relations.")
+
+    relations.extend(relations_mrebel if relations_mrebel is not None else [])
+    relations.extend(relations_llm if relations_llm is not None else [])
 
     extraction_event = ExtractionEvent(query=data, results=relations)
     # upload(extraction_event)  # TODO: add cloud upload functionality
 
-    # TODO: possibly use HTTP 102 or WebSocket to send progress updates
-
-    # Step 4: Evaluate the extraction results
-    evaluation_event = evaluate(extraction_event, actions)
+    # * Step 4: Evaluate the extraction results
+    evaluation_event = evaluate(extraction_event, relations)
 
     # TODO: add confidence level & evaluation
 
@@ -63,6 +81,8 @@ async def extractHandler(data: str) -> list[Relation]:
     Note:
         This litestar app runs on a separate litestar instance in order to
         enable hot reload on the main litestar app.
+        Use `LITESTAR_APP=app:app_extract litestar run --port 8001 --pdb` to
+        start the server.
 
     Args:
         data (str): String containing the paragraph to extract relations from.
@@ -71,12 +91,14 @@ async def extractHandler(data: str) -> list[Relation]:
         list[Relation]: List of extracted relations triplets.
     """
 
-    extract = importlib.import_module("extract")
+    print(f"Extracting triplets from text: \n```\n{data}\n```")
+
+    from extract_mrebel import extract
 
     if data is None or data == "":
         return []
 
-    return extract.extract(data)
+    return extract(data)
 
 
 # Separate litestar instance for mREBEL model
