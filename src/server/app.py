@@ -71,7 +71,7 @@ async def processHandler(data: ExtractionQuery) -> EvaluationEvent | None:
 
 
 # Default litestar instance
-app = Litestar([processHandler])
+app = Litestar(route_handlers=[processHandler], logging_config=CONFIG)
 
 
 @post("/extract/")
@@ -102,4 +102,4 @@ async def extractHandler(data: str) -> list[Relation]:
 
 
 # Separate litestar instance for mREBEL model
-app_extract = Litestar([extractHandler])
+app_extract = Litestar(route_handlers=[extractHandler], logging_config=CONFIG)
