@@ -1,30 +1,49 @@
 from dataclasses import dataclass, field
+from enum import Enum
 
 from uuid_extensions import uuid7str
+
+from lxml.html import HtmlElement
 
 
 @dataclass
 class WebpageData:
     url: str
-    title: str
     htmlBase64: str
     imageBase64: str
     language: str
 
 
 @dataclass
+class ActionType(Enum):
+    CLICK: str = "CLICK"
+    TYPE: str = "TYPE"
+    TYPESUBMIT: str = "TYPESUBMIT"
+    STOP: str = "STOP"
+
+
+@dataclass
+class ActionTarget:
+    xpath: str
+    type: str  # "LINK" | "BUTTON" | "INPUT"
+    content: str  # text content or value of the element
+    details: dict | None  # additional details (e.g. href, placeholder, etc.)
+
+
+@dataclass
 class Action:
-    value: str  # description of the action (e.g. button text, link text, etc.)
-    type: str  # TODO: change to enum
-    target: str  # TODO: add detailed definition (e.g. xpath, css selector, etc.)
+    target: ActionTarget
+    type: ActionType
+    value: str | None  # for TYPE, TYPESUBMIT and STOP
 
 
 @dataclass
 class ParsedWebpageData(WebpageData):
-    content: str
-    contentMarkdown: str
-    contentXML: str
-    actions: list[Action]
+    title: str | None
+    content: str | None
+    contentMarkdown: str | None
+    contentHTML: HtmlElement
+    actions: list[ActionTarget]
 
 
 @dataclass
@@ -53,7 +72,7 @@ class ScrapeEvent(Event):
 @dataclass
 class ExtractionQuery:
     event: ScrapeEvent
-    targets: list[ExtractionTarget]
+    target: ExtractionTarget
 
 
 @dataclass
@@ -65,11 +84,11 @@ class ExtractionEvent(Event):
 @dataclass
 class EvaluationQuery:
     event: ExtractionEvent
-    actions: list[Action]
+    actions: list[ActionTarget]
 
 
 @dataclass
 class EvaluationEvent(Event):
     query: ExtractionQuery
     results: list[Relation]
-    next_actions: list[Action] = None  # stop processing if empty
+    next_actions: list[ActionTarget] | None  # stop processing if empty
