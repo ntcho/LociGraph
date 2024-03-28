@@ -3,11 +3,37 @@ from utils.logging import FORMAT
 
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)  # TODO: Change to INFO on production
 
+
+from pprint import pformat
 
 import wn
 from wn.morphy import Morphy
+from lxml.html import HtmlElement, tostring
+
+from dtos import ExtractionTarget, WebpageData
+
+# regex namespace for lxml XPath
+regexpNS = {"re": "http://exslt.org/regular-expressions"}
+
+tag_blacklist = set(
+    [
+        "html",
+        "head",
+        "title",
+        "meta",
+        "iframe",
+        "body",
+        "script",
+        "style",
+        "path",
+        "svg",
+        "br",
+    ]
+)
+
+from parse import parse
 from utils.json import read_json
 
 # Download and cache the Open English Wordnet (OEWN) 2023
@@ -21,40 +47,70 @@ index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
 stopwords = read_json("utils/stopwords.json")
 
 
-def filter(paragraphs: list[str], keywords: list[str]) -> list[str]:
-    """Filter and return relevant paragraphs based on the given keywords.
+def filter(html: HtmlElement, target: ExtractionTarget) -> list[HtmlElement]:
+    """Filter and return relevant elements based on the given keywords.
 
     Args:
-        paragraphs (list[str]): The paragraphs to filter.
+        html (HtmlElement): The HTML element to filter.
         keywords (list[str]): The keywords to filter with.
 
     Returns:
-        list[str]: The filtered paragraphs.
+        list[HtmlElement]: The filtered elements.
     """
 
-    filtered_paragraphs = []
+    xpath_keywords = []
 
-    # expand keywords to include synonyms, related words, and aliases
-    # could also use `wn.similarity` to filter based on semantic similarity
-    # See more: https://wn.readthedocs.io/en/latest/api/wn.similarity.html
-    expanded_keywords = expand_keywords(keywords)
+    # add name of entity to keywords
+    xpath_keywords.append(target.entity)
 
-    for paragraph in paragraphs:
-        for keyword in expanded_keywords:
-            if keyword in paragraph:
-                filtered_paragraphs.append(paragraph)
-                break
+    if target.attribute is not None:
+        # add all keywords + extended keywords from the attribute
+        xpath_keywords.extend(
+            # only use keywords that are not phrases
+            [k for k in expand_keywords(list(target.attribute)) if " " not in k]
+        )
 
-    return filtered_paragraphs
+    logger.info(f"Filtering elements with {len(xpath_keywords)} keywords...")
+    logger.debug(f"XPath keywords: \n{pformat(xpath_keywords)}")
+
+    xpath_query = " | ".join(
+        [
+            f"//body//*[re:test(text(), '\\b{keyword}\\b', 'i') \
+and not(contains(@style, 'display: none')) \
+and not(contains(@class, 'hidden')) \
+and not(contains(@class, 'none')) \
+and not(contains(@style, 'visibility: hidden')) \
+and not(contains(@style, 'visibility: hidden')) \
+and not(contains(@aria-hidden, 'true'))]"
+            for keyword in xpath_keywords
+        ]
+    )
+
+    # logger.debug(f"XPath query: \n```\n{xpath_query}\n```")
+    filtered_elements = html.xpath(f"{xpath_query}", namespaces=regexpNS)
+
+    # remove elements with blacklisted tags
+    filtered_elements = [e for e in filtered_elements if e.tag not in tag_blacklist]
+
+    logger.info(f"Found {len(filtered_elements)} elements")
+    logger.debug(
+        f"Filtered elements: \n```\n{pformat([e.tag for e in filtered_elements])}\n```"
+    )
+
+    return filtered_elements  # TODO: add confidence level for each element
 
 
-def expand_keywords(keywords: list[str]) -> set[str]:
+def expand_keywords(keywords: list[str]) -> list[str]:
     """Find synonyms, related words, and aliases of the given keywords from
     WikiData and Wordnet.
 
     Note:
         WikiData aliases are generally more accurate, but Wordnet is added to
         capture all possible synonyms and related words.
+
+    Future:
+        Could also use `wn.similarity` to filter based on semantic similarity.
+        See more: https://wn.readthedocs.io/en/latest/api/wn.similarity.html
 
     Args:
         keywords (list[str]): The keywords to expand.
@@ -112,6 +168,23 @@ def expand_keywords(keywords: list[str]) -> set[str]:
 
                 logger.info(f"    related: added {related_synset.lemmas()}")
 
-    logger.debug(f"expanded keywords: {expanded_keywords}")
+    # remove stopwords from expanded keywords
+    expanded_keywords = [k for k in expanded_keywords if k not in stopwords]
+    logger.debug(f"expanded keywords: \n{pformat(expanded_keywords)}")
 
-    return expanded_keywords
+    return expanded_keywords  # TODO: add confidence level for each keyword
+
+
+# TODO: remove on production
+# from utils.dev import read_file_to_base64
+
+# r = parse(
+#     WebpageData(
+#         url="https://example.com",
+#         htmlBase64=read_file_to_base64("data/wiki.html"),
+#         imageBase64="",
+#         language="en",
+#     )
+# )
+
+# e = filter(r.contentHTML, ["graduated from"])
