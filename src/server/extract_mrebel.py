@@ -6,10 +6,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # TODO: Change to INFO on production
 
 
+from dataclasses import dataclass
 from pprint import pformat
 
 from transformers import pipeline
-from dataclasses import dataclass
 
 from dtos import Relation
 

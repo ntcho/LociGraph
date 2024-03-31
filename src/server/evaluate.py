@@ -1,4 +1,11 @@
-from dtos import ExtractionEvent, ActionTarget, EvaluationEvent, Relation
+import logging
+from utils.logging import FORMAT
+
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+from dtos import ExtractionEvent, ActionElement, EvaluationEvent, Relation
 
 # import openai
 
@@ -16,9 +23,11 @@ You are an agent controlling a browser. You are given:
     (3) a simplified description of the content of the webpage (more on that below)
 
 You can issue these commands:
+
     CLICK [X] - click element with id X. You can only click on LINK and BUTTON!
     TYPE [X] 'text' - type the specified text into INPUT element with id X.
     TYPESUBMIT [X] 'text' - same as TYPE above, except this command presses ENTER to submit the form
+    STOP 'answer' - stop the process and provide the final answer
 
 The format of the browser content is highly simplified; all formatting elements are stripped.
 Interactive elements such as LINK, INPUT, BUTTON are represented like this:
@@ -82,7 +91,7 @@ YOUR COMMAND:
 
 def evaluate(
     extraction_result: ExtractionEvent, relations: list[Relation]
-) -> EvaluationEvent:
+) -> EvaluationEvent | None:
 
     # prompt = f"Extraction Event: {extraction_event}\nActions: {actions}\n\n"
     # response = openai.Completion.create(
@@ -100,4 +109,17 @@ def evaluate(
     #     "Action 3",
     # ]  # Replace with your logic to generate next actions
 
-    return EvaluationEvent(evaluation=evaluation, next_actions=next_actions)
+    prompt = (
+        prompt_template.replace("$url", extraction_result.data.event.data.url)
+        .replace("$title", extraction_result.data.event.title)
+        .replace("$browser_content", extraction_result.data.event.data)
+        .replace("$previous_command", "No previous command")
+        .replace("$objective", extraction_result.data.target)
+    )
+
+    logger.debug(f"Prompt: \n```\n{prompt}\n```")
+
+    # TODO: See https://arxiv.org/pdf/2306.13063.pdf#page=28.20 for evaluation prompt details
+
+    # return EvaluationEvent(evaluation=evaluation, next_actions=next_actions)
+    return None

@@ -12,7 +12,7 @@ import wn
 from wn.morphy import Morphy
 from lxml.html import HtmlElement, tostring
 
-from dtos import ExtractionTarget, WebpageData
+from dtos import Relation, WebpageData
 
 # regex namespace for lxml XPath
 regexpNS = {"re": "http://exslt.org/regular-expressions"}
@@ -47,7 +47,7 @@ index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
 stopwords = read_json("utils/stopwords.json")
 
 
-def filter(html: HtmlElement, target: ExtractionTarget) -> list[HtmlElement]:
+def filter(html: HtmlElement, target: Relation) -> list[HtmlElement]:
     """Filter and return relevant elements based on the given keywords.
 
     Args:

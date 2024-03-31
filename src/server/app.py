@@ -11,16 +11,11 @@ from parse import parse
 from filter import filter
 from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
-from dtos import (
-    ExtractionQuery,
-    ExtractionEvent,
-    Relation,
-    EvaluationEvent,
-)
+from dtos import Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
 
 
 @post("/process/")
-async def processHandler(data: ExtractionQuery) -> EvaluationEvent | None:
+async def processHandler(data: Query) -> EvaluationEvent | None:
     """Process the given extraction query.
 
     Note:
@@ -36,22 +31,23 @@ async def processHandler(data: ExtractionQuery) -> EvaluationEvent | None:
     """
 
     # * Step 1: Parse the webpage data into paragraphs
-    webpage = parse(data.event.webpage_data)
+    scrape_event = ScrapeEvent(data=parse(data.data))
+    webpage = scrape_event.data
 
-    if webpage is None or webpage.content is None:
+    if webpage is None or webpage.content is None or webpage.contentHTML is None:
         raise Exception("Invalid webpage data.")
 
     # * Step 2: Filter relevant elements
-    relevant_elements = filter(webpage.contentHTML, data.target)
+    relevant_elements = filter(webpage.contentHTML, data.query)
 
     # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []
 
     # TODO: possibly use HTTP 102 or WebSocket to send updates for long requests
     # Extract relations using the app_extract litestar instance
-    relations_mrebel = extract_mrebel(relevant_elements, data.target)
+    relations_mrebel = extract_mrebel(relevant_elements, query)
     # Extract relations using the LLM APIs
-    relations_llm = extract_llm(relevant_elements, data.target)
+    relations_llm = extract_llm(relevant_elements, query)
 
     if relations_mrebel is None and relations_llm is None:
         raise Exception("Failed to extract relations.")
@@ -59,7 +55,9 @@ async def processHandler(data: ExtractionQuery) -> EvaluationEvent | None:
     relations.extend(relations_mrebel if relations_mrebel is not None else [])
     relations.extend(relations_llm if relations_llm is not None else [])
 
-    extraction_event = ExtractionEvent(query=data, results=relations)
+    extraction_event = ExtractionEvent(
+        data=scrape_event, query=query, results=relations
+    )
     # upload(extraction_event)  # TODO: add cloud upload functionality
 
     # * Step 4: Evaluate the extraction results

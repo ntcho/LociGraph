@@ -16,7 +16,7 @@ from lxml.etree import _ElementTree, ElementTree
 from cssselect import ExpressionError
 from tinycss2 import parse_stylesheet, serialize
 
-from dtos import ActionTarget, WebpageData, ParsedWebpageData
+from dtos import ActionElement, WebpageData, ParsedWebpageData
 
 
 def parse(data: WebpageData) -> ParsedWebpageData:
@@ -103,14 +103,16 @@ input_button_selector = " or ".join(
 
 def extract_html(
     html: str, url: str
-) -> tuple[HtmlElement, _ElementTree, str | None, list[ActionTarget]]:
+) -> tuple[HtmlElement, _ElementTree, str | None, list[ActionElement]]:
     """Extract actions from the HTML using lxml.
 
     Args:
         html (str): HTML of the webpage
 
     Returns:
-        list[Action]: List of actions"""
+        tuple[HtmlElement, _ElementTree, str | None, list[ActionElement]]:
+        Root element of the HTML, element tree, HTML title and actions
+    """
 
     logger.info(f"Parsing HTML... [{len(html)} bytes]")
 
@@ -181,7 +183,7 @@ def extract_html(
     Create ActionTarget objects from the extracted elements
     """
 
-    actions = []
+    actions: list[ActionElement] = []
 
     for element in links:
         content = element.text_content().replace("\n", " ").strip()
@@ -198,7 +200,7 @@ def extract_html(
             details["href"] = href
 
         actions.append(
-            ActionTarget(
+            ActionElement(
                 xpath=tree.getpath(element),
                 type="LINK",
                 content=content,
@@ -214,7 +216,7 @@ def extract_html(
             continue  # skip empty buttons
 
         actions.append(
-            ActionTarget(
+            ActionElement(
                 xpath=tree.getpath(element),
                 type="BUTTON",
                 content=content,
@@ -237,7 +239,7 @@ def extract_html(
             details["label"] = label.text_content()
 
         actions.append(
-            ActionTarget(
+            ActionElement(
                 xpath=tree.getpath(element),
                 type="INPUT",
                 content=element.get("value", default=None),

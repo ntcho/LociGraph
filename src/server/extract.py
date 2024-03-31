@@ -10,17 +10,17 @@ logger.setLevel(logging.INFO)
 import requests
 from lxml.html import HtmlElement
 
-from dtos import ExtractionTarget, Relation
+from dtos import Relation, RelationQuery
 
 
 def extract_mrebel(
-    elements: list[HtmlElement], target: ExtractionTarget
+    elements: list[HtmlElement], target: RelationQuery
 ) -> list[Relation] | None:
     """Extract relation triplets with mREBEL model.
 
     Args:
         elements (list[HtmlElements]): List of HTML elements to extract relations from.
-        target (ExtractionTarget): The target entity to extract relations for.
+        target (RelationQuery): The query of relations to extract.
 
     Returns:
         list[Relation]: List of extracted relations triplets or None if the
@@ -40,7 +40,7 @@ def extract_mrebel(
     )
 
     if response.status_code == 201:
-        # unpack json response to list of Relation objects
+        # unpack json response to list of RelationQuery objects
         return [Relation(**r) for r in response.json()]
     else:
         logging.error(
@@ -50,13 +50,13 @@ def extract_mrebel(
 
 
 def extract_llm(
-    elements: list[HtmlElement], target: ExtractionTarget
+    elements: list[HtmlElement], target: RelationQuery
 ) -> list[Relation] | None:
     """Extract relation triplets with LLMs.
 
     Args:
         elements (list[HtmlElements]): List of HTML elements to extract relations from.
-        target (ExtractionTarget): The target entity to extract relations for.
+        target (RelationQuery): The query of relations to extract.
 
     Returns:
         list[Relation]: List of extracted relations triplets or None if the
@@ -78,8 +78,8 @@ def extract_llm(
     # )
 
     # if response.status_code == 200:
-    #     # unpack json response to list of Relation objects
-    #     return [Relation(**r) for r in response.json()]
+    #     # unpack json response to list of RelationQuery objects
+    #     return [RelationQuery(**r) for r in response.json()]
     # else:
     #     logging.error(
     #         f"Failed to extract relations. API returned code {response.status_code}"
