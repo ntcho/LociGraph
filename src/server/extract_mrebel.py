@@ -52,7 +52,7 @@ def extract(text: str) -> list[Relation]:
     # Translate text into string with triplet tokens
     extracted_text = triplet_extractor.tokenizer.batch_decode(
         [
-            triplet_extractor(
+            triplet_extractor(  # type: ignore
                 text,
                 decoder_start_token_id=250058,  # `tp_XX` token
                 src_lang="en_XX",  # change en_XX for the language of the source
