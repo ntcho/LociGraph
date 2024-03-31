@@ -1,9 +1,8 @@
-import logging
-from utils.logging import CONFIG, FORMAT
+import utils.logging as _log
 
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
 
 from litestar import Litestar, post
 
@@ -45,9 +44,9 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
 
     # TODO: possibly use HTTP 102 or WebSocket to send updates for long requests
     # Extract relations using the app_extract litestar instance
-    relations_mrebel = extract_mrebel(relevant_elements, query)
+    relations_mrebel = extract_mrebel(relevant_elements, data.query)
     # Extract relations using the LLM APIs
-    relations_llm = extract_llm(relevant_elements, query)
+    relations_llm = extract_llm(relevant_elements, data.query)
 
     if relations_mrebel is None and relations_llm is None:
         raise Exception("Failed to extract relations.")
@@ -56,7 +55,7 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
     relations.extend(relations_llm if relations_llm is not None else [])
 
     extraction_event = ExtractionEvent(
-        data=scrape_event, query=query, results=relations
+        data=scrape_event, query=data.query, results=relations
     )
     # upload(extraction_event)  # TODO: add cloud upload functionality
 
@@ -69,7 +68,7 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
 
 
 # Default litestar instance
-app = Litestar(route_handlers=[processHandler], logging_config=CONFIG)
+app = Litestar(route_handlers=[processHandler], logging_config=_log.CONFIG)
 
 
 @post("/extract/")
@@ -100,4 +99,4 @@ async def extractHandler(data: str) -> list[Relation]:
 
 
 # Separate litestar instance for mREBEL model
-app_extract = Litestar(route_handlers=[extractHandler], logging_config=CONFIG)
+app_extract = Litestar(route_handlers=[extractHandler], logging_config=_log.CONFIG)

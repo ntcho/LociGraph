@@ -1,9 +1,8 @@
-import logging
-from utils.logging import FORMAT
+import utils.logging as _log
 
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # TODO: Change to INFO on production
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
 
 
 from pprint import pformat
@@ -70,8 +69,8 @@ def filter(html: HtmlElement, target: Relation) -> list[HtmlElement]:
             [k for k in expand_keywords(list(target.attribute)) if " " not in k]
         )
 
-    logger.info(f"Filtering elements with {len(xpath_keywords)} keywords...")
-    logger.debug(f"XPath keywords: \n{pformat(xpath_keywords)}")
+    log.info(f"Filtering elements with {len(xpath_keywords)} keywords...")
+    log.debug(f"XPath keywords: \n{pformat(xpath_keywords)}")
 
     xpath_query = " | ".join(
         [
@@ -86,14 +85,14 @@ and not(contains(@aria-hidden, 'true'))]"
         ]
     )
 
-    # logger.debug(f"XPath query: \n```\n{xpath_query}\n```")
+    # log.debug(f"XPath query: \n```\n{xpath_query}\n```")
     filtered_elements = html.xpath(f"{xpath_query}", namespaces=regexpNS)
 
     # remove elements with blacklisted tags
     filtered_elements = [e for e in filtered_elements if e.tag not in tag_blacklist]
 
-    logger.info(f"Found {len(filtered_elements)} elements")
-    logger.debug(
+    log.info(f"Found {len(filtered_elements)} elements")
+    log.debug(
         f"Filtered elements: \n```\n{pformat([e.tag for e in filtered_elements])}\n```"
     )
 
@@ -137,12 +136,12 @@ def expand_keywords(keywords: list[str]) -> list[str]:
     # iterate through all keywords and parts of keywords
     for keyword in all_keywords:
 
-        logger.info(f"expanding `{keyword}`")
+        log.info(f"expanding `{keyword}`")
 
         # add all WikiData property aliases
         try:
             expanded_keywords.update(index[keyword])
-            logger.info(f"  alias: added {index[keyword]}")
+            log.info(f"  alias: added {index[keyword]}")
         except KeyError:
             pass  # no aliases found
 
@@ -158,7 +157,7 @@ def expand_keywords(keywords: list[str]) -> list[str]:
                 for form in word.forms():
                     expanded_keywords.add(form)
 
-            logger.info(f"  synset: added {synset.lemmas()}")
+            log.info(f"  synset: added {synset.lemmas()}")
 
             # add all words from related synsets of current synset
             for related_synset in synset.get_related():
@@ -166,11 +165,11 @@ def expand_keywords(keywords: list[str]) -> list[str]:
                     for form in word.forms():
                         expanded_keywords.add(form)
 
-                logger.info(f"    related: added {related_synset.lemmas()}")
+                log.info(f"    related: added {related_synset.lemmas()}")
 
     # remove stopwords from expanded keywords
     expanded_keywords = [k for k in expanded_keywords if k not in stopwords]
-    logger.debug(f"expanded keywords: \n{pformat(expanded_keywords)}")
+    log.debug(f"expanded keywords: \n{pformat(expanded_keywords)}")
 
     return expanded_keywords  # TODO: add confidence level for each keyword
 

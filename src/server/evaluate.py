@@ -1,9 +1,9 @@
-import logging
-from utils.logging import FORMAT
+import utils.logging as _log
 
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
+
 
 from dtos import ExtractionEvent, ActionElement, EvaluationEvent, Relation
 
@@ -117,7 +117,7 @@ def evaluate(
         .replace("$objective", extraction_result.data.target)
     )
 
-    logger.debug(f"Prompt: \n```\n{prompt}\n```")
+    log.debug(f"Prompt: \n```\n{prompt}\n```")
 
     # TODO: See https://arxiv.org/pdf/2306.13063.pdf#page=28.20 for evaluation prompt details
 

@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from uuid_extensions import uuid7str
-
 from lxml.html import HtmlElement
 
 

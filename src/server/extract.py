@@ -1,10 +1,8 @@
-import logging
+import utils.logging as _log
 
-from utils.logging import FORMAT
-
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
 
 
 import requests

@@ -1,9 +1,8 @@
-import logging
-from utils.logging import FORMAT
+import utils.logging as _log
 
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # TODO: Change to INFO on production
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
 
 
 from dataclasses import dataclass
@@ -18,7 +17,7 @@ triplet_extractor = pipeline(
     model="Babelscape/mrebel-large",
     tokenizer="Babelscape/mrebel-large",
 )
-logger.info("Initialized triplet extractor pipeline")
+log.info("Initialized triplet extractor pipeline")
 
 
 @dataclass
@@ -48,7 +47,7 @@ def extract(text: str) -> list[Relation]:
     if triplet_extractor is None or triplet_extractor.tokenizer is None:
         raise Exception("Triplet extractor not initialized")
 
-    logger.info(f"Extracting triplets from text: \n```\n{text}\n```")
+    log.info(f"Extracting triplets from text: \n```\n{text}\n```")
 
     # Translate text into string with triplet tokens
     extracted_text = triplet_extractor.tokenizer.batch_decode(
@@ -64,15 +63,15 @@ def extract(text: str) -> list[Relation]:
         ]
     )
 
-    logger.debug(
+    log.debug(
         f"Extracted text with triplet tokens: \n```\n{pformat(extracted_text)}\n```"
     )
 
     # Extract triplets from the translated text
     triplets = extract_triplets(extracted_text[0])
 
-    logger.info(f"Extracted {len(triplets)} triplets from text")
-    logger.debug(f"Extracted triplets: \n```\n{pformat(triplets)}\n```")
+    log.info(f"Extracted {len(triplets)} triplets from text")
+    log.debug(f"Extracted triplets: \n```\n{pformat(triplets)}\n```")
 
     return [
         Relation(

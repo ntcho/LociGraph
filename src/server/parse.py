@@ -1,9 +1,8 @@
-import logging
-from utils.logging import FORMAT
+import utils.logging as _log
 
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # TODO: Change to INFO on production
+_log.configure(format=_log.FORMAT)
+log = _log.getLogger(__name__)
+log.setLevel(_log.LEVEL)
 
 
 from base64 import b64decode
@@ -56,17 +55,17 @@ def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
     content = extract(html)
 
     if content:
-        logger.info(f"Extracted content in plain text [{len(content)} chars]")
-        logger.debug(f"Extracted content: \n```\n{content[:500]}\n```")
+        log.info(f"Extracted content in plain text [{len(content)} chars]")
+        log.debug(f"Extracted content: \n```\n{content[:500]}\n```")
     else:
-        logger.warn(f"Extracted no content")
+        log.warn(f"Extracted no content")
         return None, None
 
     content_markdown = extract(html, include_links=True, url=url)
 
     if content_markdown:
-        logger.info(f"Extracted content in markdown [{len(content_markdown)} chars]")
-        logger.debug(f"Extracted content: \n```\n{content_markdown[:500]}\n```")
+        log.info(f"Extracted content in markdown [{len(content_markdown)} chars]")
+        log.debug(f"Extracted content: \n```\n{content_markdown[:500]}\n```")
 
     return content, content_markdown
 
@@ -114,18 +113,18 @@ def extract_html(
         Root element of the HTML, element tree, HTML title and actions
     """
 
-    logger.info(f"Parsing HTML... [{len(html)} bytes]")
+    log.info(f"Parsing HTML... [{len(html)} bytes]")
 
     # parse the HTML using lxml
     root: HtmlElement = fromstring(html, base_url=url)
     tree: _ElementTree = ElementTree(root)
 
-    logger.info(f"Parsed HTML [{tree.__sizeof__()} bytes]")
+    log.info(f"Parsed HTML [{tree.__sizeof__()} bytes]")
 
     title = root.xpath("//title/text()")
     title = title[0] if len(title) > 0 else None
 
-    logger.info(f"Parsed title: `{title}`")
+    log.info(f"Parsed title: `{title}`")
 
     """
     Extract elements with actions from the HTML
@@ -150,9 +149,9 @@ def extract_html(
             )
         except ExpressionError as e:
             # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            logger.info(f"Skipped selector `{selector}`, {e}")
+            log.info(f"Skipped selector `{selector}`, {e}")
 
-    logger.info(f"Extracted LINK elements [{len(links)} elements]")
+    log.info(f"Extracted LINK elements [{len(links)} elements]")
 
     # * extract INPUT elements
     # all <input> elements except hidden and button types
@@ -164,7 +163,7 @@ def extract_html(
         root.xpath("//textarea")
     )  # TODO: use `.get("placeholder")` for context
 
-    logger.info(f"Extracted INPUT elements [{len(inputs)} elements]")
+    log.info(f"Extracted INPUT elements [{len(inputs)} elements]")
 
     # * Extract BUTTON elements
     # all <button> element with non-empty text content
@@ -174,7 +173,7 @@ def extract_html(
     # all <input> elements with button type attributes
     buttons.extend(root.xpath(f"//input[{input_button_selector}]"))
 
-    logger.info(f"Extracted BUTTON elements [{len(buttons)} elements]")
+    log.info(f"Extracted BUTTON elements [{len(buttons)} elements]")
 
     # * Extract SELECT elements
     # dropdowns.extend(root.xpath("//select")) # TODO: add support for <select> tags
@@ -247,8 +246,8 @@ def extract_html(
             )
         )
 
-    logger.info(f"Created ActionTargets [{len(actions)} actions]")
-    logger.debug(
+    log.info(f"Created ActionTargets [{len(actions)} actions]")
+    log.debug(
         f"Created ActionTargets: \n```\n{pformat(actions[:3])}\n{pformat(actions[-3:])}\n```"
     )
 
