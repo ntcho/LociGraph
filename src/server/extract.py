@@ -41,7 +41,7 @@ def extract_mrebel(
         # unpack json response to list of RelationQuery objects
         return [Relation(**r) for r in response.json()]
     else:
-        logging.error(
+        log.error(
             f"Failed to extract relations. app_extract returned code {response.status_code}"
         )
         return None
@@ -79,7 +79,7 @@ def extract_llm(
     #     # unpack json response to list of RelationQuery objects
     #     return [RelationQuery(**r) for r in response.json()]
     # else:
-    #     logging.error(
+    #     log.error(
     #         f"Failed to extract relations. API returned code {response.status_code}"
     #     )
     #     return None
