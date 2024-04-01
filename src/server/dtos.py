@@ -116,6 +116,16 @@ class RelationQuery(Relation):
     attribute: Optional[str] = None
     value: Optional[str] = None
 
+    def getobjective(self) -> str:
+        if self.entity is None:
+            raise AttributeError("Query entity not found")
+        elif self.attribute is not None and self.value is not None:
+            return f"Verify whether the `{self.entity}` entity has the `{self.attribute}` attribute equal to `{self.value}`."
+        elif self.attribute is not None:
+            return f"Find the value of the `{self.attribute}` attribute of the `{self.entity}` entity."
+        else:
+            return f"Find all attribute of the `{self.entity}` entity."
+
 
 @dataclass
 class Event:

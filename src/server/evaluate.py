@@ -109,13 +109,26 @@ def evaluate(
     #     "Action 3",
     # ]  # Replace with your logic to generate next actions
 
-    prompt = (
-        prompt_template.replace("$url", extraction_result.data.event.data.url)
-        .replace("$title", extraction_result.data.event.title)
-        .replace("$browser_content", extraction_result.data.event.data)
-        .replace("$previous_command", "No previous command")
-        .replace("$objective", extraction_result.data.target)
-    )
+    prompt = prompt_template.replace("$url", extraction_result.data.data.url)
+
+    if extraction_result.data.data.title:
+        prompt = prompt.replace("$title", extraction_result.data.data.title)
+    else:
+        # Remove the title placeholder if it is not available
+        prompt = prompt.replace("CURRENT PAGE TITLE: $title\n", "")
+
+    if extraction_result.data.data.content:
+        prompt = prompt.replace("$browser_content", extraction_result.data.data.content)
+    else:
+        # Remove the content placeholder if it is not available
+        prompt = prompt.replace(
+            "CURRENT BROWSER CONTENT:\n```\n$browser_content\n```\n", ""
+        )
+
+    try:
+        prompt = prompt.replace("$objective", extraction_result.query.getobjective())
+    except AttributeError:
+        raise RuntimeError("Query objective not found")
 
     log.debug(f"Prompt: \n```\n{prompt}\n```")
 
