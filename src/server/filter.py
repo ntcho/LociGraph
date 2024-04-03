@@ -57,26 +57,36 @@ def filter(html: HtmlElement, query: RelationQuery) -> list[HtmlElement]:
         list[HtmlElement]: The filtered elements.
     """
 
-    xpath_keywords = []
+    xpath_keywords: dict[str, float] = {}  # { keyword: confidence }
 
     # add name of entity to keywords
-    xpath_keywords.append(query.entity)
+    xpath_keywords[query.entity] = 1.0
 
     # add all keywords + extended keywords from the attribute
     if query.attribute is not None:
-        all_keywords = []
+        expanded_keywords = expand_keywords([query.attribute])
 
-        # add parts of the keyword
+        # add words of the keyword phrase without stopwords
         # e.g. "attended school at" -> ["attended", "school"] ("at" is a stopword)
-        for keyword in expand_keywords([query.attribute]):
+        for keyword in expanded_keywords:
             for word in keyword.split(" "):
                 if word not in stopwords:
-                    all_keywords.append(word)
+                    # add keyword with confidence level
+                    xpath_keywords[word] = expanded_keywords[keyword]
 
-        xpath_keywords.extend(all_keywords)
+    # filter top K keywords by confidence level
+    xpath_keywords = dict(
+        sorted(xpath_keywords.items(), key=lambda item: item[1], reverse=True)
+    )
 
-    log.info(f"Filtering elements with {len(xpath_keywords)} keywords...")
-    log.debug(f"XPath keywords: \n{pformat(xpath_keywords)}")
+    # number of keywords with confidence level of 1.0
+    k = sum(1 for v in xpath_keywords.values() if v == 1.0)
+
+    # get max(k, 25) keywords
+    top_keywords = list(xpath_keywords.keys())[: max(k, 25)]
+
+    log.info(f"Filtering elements with {len(top_keywords)} keywords...")
+    log.debug(f"XPath filter keywords: \n{pformat(top_keywords)}")
 
     # filter elements with keywords that are not hidden
     xpath_query = " | ".join(
@@ -86,9 +96,8 @@ and not(contains(@style, 'display: none')) \
 and not(contains(@class, 'hidden')) \
 and not(contains(@class, 'none')) \
 and not(contains(@style, 'visibility: hidden')) \
-and not(contains(@style, 'visibility: hidden')) \
-and not(contains(@aria-hidden, 'true'))]"
-            for keyword in xpath_keywords
+and not(contains(@style, 'visibility: hidden'))]"
+            for keyword in top_keywords
         ]
     )
 
@@ -106,7 +115,7 @@ and not(contains(@aria-hidden, 'true'))]"
     return filtered_elements  # TODO: add confidence level for each element
 
 
-def expand_keywords(keywords: list[str]) -> list[str]:
+def expand_keywords(keywords: list[str]) -> dict[str, float]:
     """Find synonyms, related words, and aliases of the given keywords from
     WikiData and Wordnet.
 
@@ -122,11 +131,11 @@ def expand_keywords(keywords: list[str]) -> list[str]:
         keywords (list[str]): The keywords to expand.
 
     Returns:
-        set[str]: The expanded keywords.
+        dict[str, float]: The expanded keywords with confidence levels.
     """
 
     all_keywords = []
-    expanded_keywords = set()
+    expanded_keywords: dict[str, float] = {}  # { keyword: confidence }
 
     # add all parts of the keyword without stopwords
     # e.g. "studied at" -> ["studied at", "studied"] ("at" is a stopword)
@@ -145,14 +154,7 @@ def expand_keywords(keywords: list[str]) -> list[str]:
 
         log.info(f"expanding `{keyword}`")
 
-        # add all WikiData property aliases
-        try:
-            expanded_keywords.update(index[keyword])
-            log.info(f"  alias: added {index[keyword]}")
-        except KeyError:
-            pass  # no aliases found
-
-        # iterate through all Wordnet synsets
+        # add all Wordnet synsets
         for synset in en.synsets(keyword):
 
             # iterate through all words linked in the synset (similar to synonyms)
@@ -162,7 +164,7 @@ def expand_keywords(keywords: list[str]) -> list[str]:
                 # add all forms of the word
                 # e.g. "studied" -> ["study"]
                 for form in word.forms():
-                    expanded_keywords.add(form)
+                    expanded_keywords[form] = 0.9
 
             log.info(f"  synset: added {synset.lemmas()}")
 
@@ -170,15 +172,28 @@ def expand_keywords(keywords: list[str]) -> list[str]:
             for related_synset in synset.get_related():
                 for word in related_synset.words():
                     for form in word.forms():
-                        expanded_keywords.add(form)
+                        expanded_keywords[form] = 0.1
 
                 log.info(f"    related: added {related_synset.lemmas()}")
 
-    # remove stopwords from expanded keywords
-    expanded_keywords = [k for k in expanded_keywords if k not in stopwords]
-    log.debug(f"expanded keywords: \n{pformat(expanded_keywords)}")
+        # add all WikiData property aliases
+        try:
+            for k in index[keyword]:
+                expanded_keywords[k] = 1.0
+            log.info(f"  alias: added {index[keyword]}")
+        except KeyError:
+            pass  # no aliases found
 
-    return expanded_keywords  # TODO: add confidence level for each keyword
+    # remove stopwords from expanded keywords
+    for stopword in stopwords:
+        try:
+            del expanded_keywords[stopword]
+        except KeyError:
+            pass
+
+    log.debug(f"expanded keywords: \n{pformat(expanded_keywords, sort_dicts=False)}")
+
+    return expanded_keywords
 
 
 # TODO: remove on production
