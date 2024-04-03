@@ -11,7 +11,7 @@ import wn
 from wn.morphy import Morphy
 from lxml.html import HtmlElement, tostring
 
-from dtos import Relation, WebpageData
+from dtos import RelationQuery, WebpageData
 
 # regex namespace for lxml XPath
 regexpNS = {"re": "http://exslt.org/regular-expressions"}
@@ -46,7 +46,7 @@ index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
 stopwords = read_json("utils/stopwords.json")
 
 
-def filter(html: HtmlElement, target: Relation) -> list[HtmlElement]:
+def filter(html: HtmlElement, query: RelationQuery) -> list[HtmlElement]:
     """Filter and return relevant elements based on the given keywords.
 
     Args:
@@ -60,18 +60,25 @@ def filter(html: HtmlElement, target: Relation) -> list[HtmlElement]:
     xpath_keywords = []
 
     # add name of entity to keywords
-    xpath_keywords.append(target.entity)
+    xpath_keywords.append(query.entity)
 
-    if target.attribute is not None:
-        # add all keywords + extended keywords from the attribute
-        xpath_keywords.extend(
-            # only use keywords that are not phrases
-            [k for k in expand_keywords(list(target.attribute)) if " " not in k]
-        )
+    # add all keywords + extended keywords from the attribute
+    if query.attribute is not None:
+        all_keywords = []
+
+        # add parts of the keyword
+        # e.g. "attended school at" -> ["attended", "school"] ("at" is a stopword)
+        for keyword in expand_keywords([query.attribute]):
+            for word in keyword.split(" "):
+                if word not in stopwords:
+                    all_keywords.append(word)
+
+        xpath_keywords.extend(all_keywords)
 
     log.info(f"Filtering elements with {len(xpath_keywords)} keywords...")
     log.debug(f"XPath keywords: \n{pformat(xpath_keywords)}")
 
+    # filter elements with keywords that are not hidden
     xpath_query = " | ".join(
         [
             f"//body//*[re:test(text(), '\\b{keyword}\\b', 'i') \
@@ -175,15 +182,15 @@ def expand_keywords(keywords: list[str]) -> list[str]:
 
 
 # TODO: remove on production
-# from utils.dev import read_file_to_base64
+from utils.dev import read_file_to_base64
 
-# r = parse(
-#     WebpageData(
-#         url="https://example.com",
-#         htmlBase64=read_file_to_base64("data/wiki.html"),
-#         imageBase64="",
-#         language="en",
-#     )
-# )
+r = parse(
+    WebpageData(
+        url="https://example.com",
+        htmlBase64=read_file_to_base64("data/linkedin.html"),
+        imageBase64="",
+        language="en",
+    )
+)
 
-# e = filter(r.contentHTML, ["graduated from"])
+e = filter(r.contentHTML, RelationQuery("Anna", "studied at"))
