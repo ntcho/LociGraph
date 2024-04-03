@@ -88,12 +88,10 @@ async def extractHandler(data: str) -> list[Relation]:
         list[Relation]: List of extracted relations triplets.
     """
 
-    print(f"Extracting triplets from text: \n```\n{data}\n```")
-
-    from extract_mrebel import extract
-
     if data is None or data == "":
         return []
+
+    from models.mrebel import extract
 
     return extract(data)
 
