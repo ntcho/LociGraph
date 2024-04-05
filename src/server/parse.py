@@ -21,24 +21,23 @@ from dtos import ActionElement, WebpageData, ParsedWebpageData
 def parse(data: WebpageData) -> ParsedWebpageData:
     html = b64decode(data.htmlBase64).decode("utf-8")
 
+    # extract plain text and markdown content
     content, content_markdown = extract_text(html, data.url)
 
-    # TODO: remove on production
-    # with open("output.md", "w") as file:
-    #     file.write(content_markdown)
-
+    # extract HTML elements with actions
     root, tree, title, actions = extract_html(html, data.url)
 
     return ParsedWebpageData(
-        url=data.url,
-        htmlBase64=data.htmlBase64,
-        imageBase64=data.imageBase64,
-        language=data.language,
-        title=title,
-        content=content,
-        contentMarkdown=content_markdown,
-        contentHTML=root,
-        actions=actions,
+        data.url,
+        data.htmlBase64,
+        data.imageBase64,
+        data.language,
+        title,
+        content,
+        content_markdown,
+        root,
+        tree,
+        actions,
     )
 
 
@@ -201,6 +200,7 @@ def extract_html(
         actions.append(
             ActionElement(
                 xpath=tree.getpath(element),
+                html_element=element,
                 type="LINK",
                 content=content,
                 details=(details if len(details) > 0 else None),
@@ -217,6 +217,7 @@ def extract_html(
         actions.append(
             ActionElement(
                 xpath=tree.getpath(element),
+                html_element=element,
                 type="BUTTON",
                 content=content,
                 details=None,
@@ -240,6 +241,7 @@ def extract_html(
         actions.append(
             ActionElement(
                 xpath=tree.getpath(element),
+                html_element=element,
                 type="INPUT",
                 content=element.get("value", default=None),
                 details=(details if len(details) > 0 else None),
@@ -304,16 +306,3 @@ def get_selectors_from_rule(
                 selectors.append(serialize(rule.prelude))
 
     return selectors
-
-
-# TODO: remove on production
-# from utils.dev import read_file_to_base64
-
-# r = parse(
-#     WebpageData(
-#         url="https://example.com",
-#         htmlBase64=read_file_to_base64("data/linkedin_anna.html"),
-#         imageBase64="",
-#         language="en",
-#     )
-# )

@@ -74,6 +74,7 @@ class ParsedWebpageData(WebpageData):
     content: str | None
     contentMarkdown: str | None
     contentHTML: HtmlElement | None
+    contentTree: _ElementTree | None
     actions: list[ActionElement]
 
 
