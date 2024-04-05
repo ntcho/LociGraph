@@ -117,6 +117,12 @@ class RelationQuery(Relation):
     attribute: Optional[str] = None
     value: Optional[str] = None
 
+    def __str__(self) -> str:
+        attribute = self.attribute if self.attribute is not None else "?"
+        value = self.value if self.value is not None else "?"
+
+        return f"[{self.entity}, {attribute}, {value}]"
+
     def getobjective(self) -> str:
         if self.entity is None:
             raise AttributeError("Query entity not found")
