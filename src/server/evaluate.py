@@ -5,6 +5,11 @@ log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
 
+from pprint import pformat
+
+from litellm import completion
+
+from utils.prompt import generate_evaluate_prompt
 from dtos import ExtractionEvent, ActionElement, EvaluationEvent, Relation
 
 # import openai
@@ -90,49 +95,23 @@ YOUR COMMAND:
 
 
 def evaluate(
-    extraction_result: ExtractionEvent, relations: list[Relation]
+    extraction_event: ExtractionEvent, results: list[Relation]
 ) -> EvaluationEvent | None:
 
-    # prompt = f"Extraction Event: {extraction_event}\nActions: {actions}\n\n"
-    # response = openai.Completion.create(
-    #     engine="gpt-3.5-turbo",
-    #     prompt=prompt,
-    #     max_tokens=100,
-    #     temperature=0.7,
-    #     n=1,
-    #     stop=None,
-    # )
-    # evaluation = response.choices[0].text.strip()
-    # next_actions = [
-    #     "Action 1",
-    #     "Action 2",
-    #     "Action 3",
-    # ]  # Replace with your logic to generate next actions
-
-    prompt = prompt_template.replace("$url", extraction_result.data.data.url)
-
-    if extraction_result.data.data.title:
-        prompt = prompt.replace("$title", extraction_result.data.data.title)
-    else:
-        # Remove the title placeholder if it is not available
-        prompt = prompt.replace("CURRENT PAGE TITLE: $title\n", "")
-
-    if extraction_result.data.data.content:
-        prompt = prompt.replace("$browser_content", extraction_result.data.data.content)
-    else:
-        # Remove the content placeholder if it is not available
-        prompt = prompt.replace(
-            "CURRENT BROWSER CONTENT:\n```\n$browser_content\n```\n", ""
+    try:
+        response = completion(
+            model="gemini/gemini-1.5-pro",
+            messages=generate_evaluate_prompt(extraction_event, results),
+            mock_response="TRUE",
         )
 
-    try:
-        prompt = prompt.replace("$objective", extraction_result.query.getobjective())
-    except AttributeError:
-        raise RuntimeError("Query objective not found")
+        # TODO: add observability callbacks
+        # See more: https://docs.litellm.ai/docs/observability/callbacks
 
-    log.debug(f"Prompt: \n```\n{prompt}\n```")
+        log.info(pformat(response))
 
-    # TODO: See https://arxiv.org/pdf/2306.13063.pdf#page=28.20 for evaluation prompt details
-
-    # return EvaluationEvent(evaluation=evaluation, next_actions=next_actions)
-    return None
+        return None
+    except Exception as e:
+        # See more: https://docs.litellm.ai/docs/exception_mapping
+        log.error(f"Failed to extract relations. {type(e)}: {e}")
+        return None
