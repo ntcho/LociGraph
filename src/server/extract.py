@@ -6,13 +6,17 @@ log.setLevel(_log.LEVEL)
 
 
 import requests
+from pprint import pformat
+
 from lxml.html import HtmlElement
+from litellm import completion
 
 from dtos import Relation, RelationQuery
+from utils.prompt import generate_extract_prompt
 
 
 def extract_mrebel(
-    elements: list[HtmlElement], target: RelationQuery
+    elements: list[HtmlElement], query: RelationQuery
 ) -> list[Relation] | None:
     """Extract relation triplets with mREBEL model.
 
@@ -32,7 +36,7 @@ def extract_mrebel(
         data=(
             "\n".join(
                 # filter elements with target entity (e.g. paragraph with entity name)
-                [e for e in element_contents if target.entity.lower() in e.lower()]
+                [e for e in element_contents if query.entity.lower() in e.lower()]
             )
         ),
     )
@@ -48,7 +52,7 @@ def extract_mrebel(
 
 
 def extract_llm(
-    elements: list[HtmlElement], target: RelationQuery
+    elements: list[HtmlElement], query: RelationQuery
 ) -> list[Relation] | None:
     """Extract relation triplets with LLMs.
 
@@ -60,26 +64,23 @@ def extract_llm(
         list[Relation]: List of extracted relations triplets or None if the
         extraction failed.
     """
-    element_contents: list[str] = [e.text_content() for e in elements]
 
-    return None  # TODO: add prompt for LLM extraction
+    try:
+        response = completion(
+            model="gemini/gemini-1.5-pro",
+            messages=generate_extract_prompt(elements, query),
+            mock_response="(Alex, studied at, Bard College)\n(Alex, majored, Computer Science)",
+        )
 
-    # response = requests.post(
-    #     "http://localhost:8002/extract/",
-    #     # send all text content of the relevant elements
-    #     data=(
-    #         "\n".join(
-    #             # filter elements with target entity (e.g. paragraph with entity name)
-    #             [e for e in element_contents if target.entity.lower() in e.lower()]
-    #         )
-    #     ),
-    # )
+        # TODO: add observability callbacks
+        # See more: https://docs.litellm.ai/docs/observability/callbacks
 
-    # if response.status_code == 200:
-    #     # unpack json response to list of RelationQuery objects
-    #     return [RelationQuery(**r) for r in response.json()]
-    # else:
-    #     log.error(
-    #         f"Failed to extract relations. API returned code {response.status_code}"
-    #     )
-    #     return None
+        log.info(pformat(response))
+
+        message = response["choices"][0]["message"]
+
+        return []
+    except Exception as e:
+        # See more: https://docs.litellm.ai/docs/exception_mapping
+        log.error(f"Failed to extract relations. {type(e)}: {e}")
+        return None
