@@ -5,12 +5,16 @@ log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
 from litestar import Litestar, post
+from dotenv import load_dotenv
 
 from parse import parse
 from filter import filter
 from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
 from dtos import Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
+
+
+load_dotenv()  # Load environment variables from `.env` file
 
 
 @post("/process/")
@@ -31,13 +35,9 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
 
     # * Step 1: Parse the webpage data into paragraphs
     scrape_event = ScrapeEvent(data=parse(data.data))
-    webpage = scrape_event.data
-
-    if webpage is None or webpage.content is None or webpage.contentHTML is None:
-        raise Exception("Invalid webpage data.")
 
     # * Step 2: Filter relevant elements
-    relevant_elements = filter(webpage.contentHTML, data.query)
+    relevant_elements = filter(scrape_event.data, data.query)
 
     # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []

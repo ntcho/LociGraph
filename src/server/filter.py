@@ -5,13 +5,25 @@ log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
 
+import re
 from pprint import pformat
+from enum import Enum
 
 import wn
 from wn.morphy import Morphy
 from lxml.html import HtmlElement, tostring
+from lxml.etree import _ElementTree
 
-from dtos import RelationQuery, WebpageData
+from dtos import Element, ParsedWebpageData, RelationQuery, WebpageData
+from utils.json import read_json
+
+
+class Relevancy(float, Enum):
+    LOW = 0.25
+    MEDIUM = 0.5
+    HIGH = 0.75
+    HIGHEST = 1.0
+
 
 # regex namespace for lxml XPath
 regexpNS = {"re": "http://exslt.org/regular-expressions"}
@@ -32,8 +44,15 @@ tag_blacklist = set(
     ]
 )
 
-from parse import parse
-from utils.json import read_json
+tag_relevance_level = {
+    "aside": Relevancy.LOW,
+    "nav": Relevancy.LOW,
+    "header": Relevancy.MEDIUM,
+    "footer": Relevancy.MEDIUM,
+    "article": Relevancy.HIGHEST,
+    "section": Relevancy.HIGHEST,
+    "main": Relevancy.HIGH,
+}
 
 # Download and cache the Open English Wordnet (OEWN) 2023
 wn.download("oewn:2023")
@@ -46,21 +65,40 @@ index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
 stopwords = read_json("utils/stopwords.json")
 
 
-def filter(html: HtmlElement, query: RelationQuery) -> list[HtmlElement]:
+def filter(data: ParsedWebpageData, query: RelationQuery) -> list[Element]:
     """Filter and return relevant elements based on the given keywords.
 
     Args:
-        html (HtmlElement): The HTML element to filter.
-        keywords (list[str]): The keywords to filter with.
+        data (ParsedWebpageData): The parsed webpage data.
+        query (RelationQuery): The relation query to filter elements.
 
     Returns:
-        list[HtmlElement]: The filtered elements.
+        list[HtmlElement]: Relevant HTML elements filtered with the query.
     """
 
-    xpath_keywords: dict[str, float] = {}  # { keyword: confidence }
+    # prepare XPath query to filter elements
+    xpath_queries = get_xpath_queries(query)
+
+    # filter elements with the XPath query
+    filtered_elements = get_elements(data, xpath_queries)
+
+    return filtered_elements
+
+
+def get_xpath_queries(query: RelationQuery) -> list[tuple[str, Relevancy]]:
+    """Get the XPath query for the given relation query.
+
+    Args:
+        query (RelationQuery): The relation query to get the XPath query for.
+
+    Returns:
+        str: The XPath query that filters top K elements related to the given query.
+    """
+
+    xpath_keywords: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
 
     # add name of entity to keywords
-    xpath_keywords[query.entity] = 1.0
+    xpath_keywords.append((query.entity, Relevancy.HIGH))
 
     # add all keywords + extended keywords from the attribute
     if query.attribute is not None:
@@ -68,25 +106,53 @@ def filter(html: HtmlElement, query: RelationQuery) -> list[HtmlElement]:
 
         # add words of the keyword phrase without stopwords
         # e.g. "attended school at" -> ["attended", "school"] ("at" is a stopword)
-        for keyword in expanded_keywords:
+        for keyword, relevancy in expanded_keywords:
             for word in keyword.split(" "):
                 if word not in stopwords:
-                    # add keyword with confidence level
-                    xpath_keywords[word] = expanded_keywords[keyword]
+                    # add keyword with relevance level
+                    xpath_keywords.append((word, relevancy))
 
-    # filter top K keywords by confidence level
-    xpath_keywords = dict(
-        sorted(xpath_keywords.items(), key=lambda item: item[1], reverse=True)
-    )
+    # filter top K keywords by relevance level
+    xpath_keywords = sorted(xpath_keywords, key=lambda item: item[1], reverse=True)
 
-    # number of keywords with confidence level of 1.0
-    k = sum(1 for v in xpath_keywords.values() if v == 1.0)
+    # number of keywords with relevance level of Relevancy.HIGHEST
+    k = sum(1 for _, r in xpath_keywords if r == Relevancy.HIGHEST)
 
     # get max(k, 25) keywords
-    top_keywords = list(xpath_keywords.keys())[: max(k, 25)]
+    top_keywords = xpath_keywords[: max(k, 25)]
 
     log.info(f"Filtering elements with {len(top_keywords)} keywords...")
     log.debug(f"XPath filter keywords: \n{pformat(top_keywords)}")
+
+    top_keywords_by_relevance: list[tuple[list[str], Relevancy]] = [
+        ([k for k, r in top_keywords if r == Relevancy.HIGHEST], Relevancy.HIGHEST),
+        ([k for k, r in top_keywords if r == Relevancy.HIGH], Relevancy.HIGH),
+        ([k for k, r in top_keywords if r == Relevancy.MEDIUM], Relevancy.MEDIUM),
+        ([k for k, r in top_keywords if r == Relevancy.LOW], Relevancy.LOW),
+    ]  # [([keyword, ...], relevance), ...]
+
+    results: list[tuple[str, Relevancy]] = []  # [(query, relevance), ...]
+
+    for keywords, relevance in top_keywords_by_relevance:
+        xpath_query = get_xpath_query_from_keywords(keywords)
+        if xpath_query is not None:
+            results.append((xpath_query, relevance))
+
+    return results
+
+
+def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
+    """Get the XPath query for the given keywords.
+
+    Args:
+        keywords (list[str]): The keywords to get the XPath query for.
+
+    Returns:
+        str: The XPath query that filters elements with the given keywords.
+    """
+
+    if len(keywords) == 0:
+        return None
 
     # filter elements with keywords that are not hidden
     xpath_query = " | ".join(
@@ -97,25 +163,88 @@ and not(contains(@class, 'hidden')) \
 and not(contains(@class, 'none')) \
 and not(contains(@style, 'visibility: hidden')) \
 and not(contains(@style, 'visibility: hidden'))]"
-            for keyword in top_keywords
+            for keyword in keywords
         ]
     )
 
-    # log.debug(f"XPath query: \n```\n{xpath_query}\n```")
-    filtered_elements = html.xpath(f"{xpath_query}", namespaces=regexpNS)
-
-    # remove elements with blacklisted tags
-    filtered_elements = [e for e in filtered_elements if e.tag not in tag_blacklist]
-
-    log.info(f"Found {len(filtered_elements)} elements")
-    log.debug(
-        f"Filtered elements: \n```\n{pformat([e.tag for e in filtered_elements])}\n```"
-    )
-
-    return filtered_elements  # TODO: add confidence level for each element
+    return xpath_query
 
 
-def expand_keywords(keywords: list[str]) -> dict[str, float]:
+def get_elements(
+    data: ParsedWebpageData, xpath_queries: list[tuple[str, Relevancy]]
+) -> list[Element]:
+    """Get all visible elements from the parsed webpage data.
+
+    Args:
+        data (ParsedWebpageData): The parsed webpage data.
+        xpath_query (str): The XPath query to filter elements.
+
+    Returns:
+        list[Element]: The filtered elements from the webpage data.
+    """
+
+    if data is None or data.contentHTML is None or data.contentTree is None:
+        raise ValueError("Invalid webpage data.")
+
+    tree: _ElementTree = data.contentTree
+    html: HtmlElement = data.contentHTML
+
+    results: list[Element] = []
+
+    for xpath_query, relevancy in xpath_queries:
+        log.debug(f"Filtering elements with XPath query [{len(xpath_query)}]")
+
+        # filter elements with the XPath query
+        xpath_eval: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
+
+        # remove elements with blacklisted tags
+        xpath_eval = [e for e in xpath_eval if e.tag not in tag_blacklist]
+
+        # create Element objects from the filtered elements
+        filtered_elements = list(
+            map(
+                lambda element: Element(
+                    xpath=tree.getpath(element),
+                    html_element=element,
+                    content=re.sub(r"\s+", " ", element.text_content()).strip(),
+                    relevance={
+                        "content": float(relevancy),
+                        "location": float(
+                            get_relevance_from_xpath(tree.getpath(element))
+                        ),
+                    },
+                ),
+                xpath_eval,
+            )
+        )
+
+        log.info(f"Found {len(filtered_elements)} elements")
+        log.debug(f"Filtered elements: \n```\n{pformat(filtered_elements)}\n```")
+
+        results.extend(filtered_elements)
+
+    return sorted(results, reverse=True)
+
+
+def get_relevance_from_xpath(xpath: str) -> Relevancy:
+    """Get the relevance level of the element with the given XPath.
+
+    Args:
+        xpath (str): The XPath of the element to get the relevance level for.
+
+    Returns:
+        Relevancy: The relevance level of the element.
+    """
+
+    for tag, relevance in tag_relevance_level.items():
+        if tag in xpath:
+            return relevance
+
+    # element not in a main content relevance level
+    return Relevancy.MEDIUM
+
+
+def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     """Find synonyms, related words, and aliases of the given keywords from
     WikiData and Wordnet.
 
@@ -131,11 +260,11 @@ def expand_keywords(keywords: list[str]) -> dict[str, float]:
         keywords (list[str]): The keywords to expand.
 
     Returns:
-        dict[str, float]: The expanded keywords with confidence levels.
+        list[tuple[str, Relevancy]]: The expanded keywords with relevancy levels.
     """
 
     all_keywords = []
-    expanded_keywords: dict[str, float] = {}  # { keyword: confidence }
+    results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
 
     # add all parts of the keyword without stopwords
     # e.g. "studied at" -> ["studied at", "studied"] ("at" is a stopword)
@@ -164,7 +293,7 @@ def expand_keywords(keywords: list[str]) -> dict[str, float]:
                 # add all forms of the word
                 # e.g. "studied" -> ["study"]
                 for form in word.forms():
-                    expanded_keywords[form] = 0.9
+                    results.append((form, Relevancy.HIGH))
 
             log.info(f"  synset: added {synset.lemmas()}")
 
@@ -172,40 +301,22 @@ def expand_keywords(keywords: list[str]) -> dict[str, float]:
             for related_synset in synset.get_related():
                 for word in related_synset.words():
                     for form in word.forms():
-                        expanded_keywords[form] = 0.1
+                        results.append((form, Relevancy.LOW))
 
                 log.info(f"    related: added {related_synset.lemmas()}")
 
         # add all WikiData property aliases
         try:
             for k in index[keyword]:
-                expanded_keywords[k] = 1.0
+                results.append((k, Relevancy.HIGHEST))
+
             log.info(f"  alias: added {index[keyword]}")
         except KeyError:
             pass  # no aliases found
 
     # remove stopwords from expanded keywords
-    for stopword in stopwords:
-        try:
-            del expanded_keywords[stopword]
-        except KeyError:
-            pass
+    results = [(k, r) for k, r in results if k not in stopwords]
 
-    log.debug(f"expanded keywords: \n{pformat(expanded_keywords, sort_dicts=False)}")
+    log.debug(f"expanded keywords: \n{pformat(results, sort_dicts=False)}")
 
-    return expanded_keywords
-
-
-# TODO: remove on production
-from utils.dev import read_file_to_base64
-
-r = parse(
-    WebpageData(
-        url="https://example.com",
-        htmlBase64=read_file_to_base64("data/linkedin.html"),
-        imageBase64="",
-        language="en",
-    )
-)
-
-e = filter(r.contentHTML, RelationQuery("Anna", "studied at"))
+    return results

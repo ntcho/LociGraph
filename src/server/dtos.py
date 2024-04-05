@@ -1,12 +1,47 @@
 from dataclasses import dataclass, field
 from typing import Literal, Optional
+from math import prod
 
 from uuid_extensions import uuid7str
 from lxml.html import HtmlElement
+from lxml.etree import _ElementTree
 
 
 @dataclass
-class ActionElement:
+class Element:
+    """Class that represents an element on a webpage.
+
+    Attributes:
+        xpath (str): The full XPath of the element.
+        html_element (HtmlElement): The HTML element.
+        content (str): The text content of the element.
+        details (dict | None): Additional attributes of the element.
+    """
+
+    xpath: str
+    html_element: HtmlElement
+    content: str
+    details: dict | None = None
+    relevance: dict[str, float] | None = None
+
+    def getrelevance(self) -> float:
+        """Get the relevance score of the element.
+
+        Note:
+            The relevance score is calculated as the product of all values
+            of the element's relevance dict.
+
+        Returns:
+            float: The relevance score of the element. Defaults to 0 if not set."""
+
+        return 0 if self.relevance is None else prod(self.relevance.values())
+
+    def __lt__(self, other) -> bool:
+        return self.getrelevance() < other.getrelevance()
+
+
+@dataclass
+class ActionElement(Element):
     """Class that represents an interactive element on a webpage.
 
     Note:
@@ -15,15 +50,13 @@ class ActionElement:
 
     Attributes:
         xpath (str): The full XPath of the element.
-        type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
-        content (str): The text content or input value of the element.
+        html (HtmlElement): The HTML element.
+        html_element (str): The text content or input value of the element.
         details (dict | None): Additional attributes of the element (e.g. href, placeholder, etc.).
+        type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
     """
 
-    xpath: str
-    type: Literal["LINK", "BUTTON", "INPUT"]
-    content: str
-    details: dict | None
+    type: Literal["LINK", "BUTTON", "INPUT"] = "LINK"
 
 
 @dataclass
