@@ -146,6 +146,9 @@ class Relation:
     attribute: str
     value: str
 
+    def __str__(self) -> str:
+        return f"[{self.entity}, {self.attribute}, {self.value}]"
+
 
 @dataclass
 class RelationQuery(Relation):
