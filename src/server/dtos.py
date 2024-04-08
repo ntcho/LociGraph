@@ -160,11 +160,11 @@ class RelationQuery(Relation):
         if self.entity is None:
             raise AttributeError("Query entity not found")
         elif self.attribute is not None and self.value is not None:
-            return f"Verify whether the `{self.entity}` entity has the `{self.attribute}` attribute equal to `{self.value}`."
+            return f"Verify whether entity `{self.entity}` has attribute `{self.attribute}` with the value `{self.value}`."
         elif self.attribute is not None:
-            return f"Find the value of the `{self.attribute}` attribute of the `{self.entity}` entity."
+            return f"Find the value of attribute `{self.attribute}` of entity `{self.entity}`."
         else:
-            return f"Find all attribute of the `{self.entity}` entity."
+            return f"Find all attribute of entity `{self.entity}`."
 
 
 @dataclass
