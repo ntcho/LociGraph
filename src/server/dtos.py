@@ -37,7 +37,23 @@ class Element:
         return 0 if self.relevance is None else prod(self.relevance.values())
 
     def __lt__(self, other) -> bool:
-        return self.getrelevance() < other.getrelevance()
+        if not isinstance(other, Element):
+            return False
+
+        self_relevance = self.getrelevance()
+        other_relevance = other.getrelevance()
+
+        # higher relevance is better
+        if self_relevance != other_relevance:
+            return self_relevance > other_relevance
+
+        # shorter xpath is better
+        if len(self.xpath) != len(other.xpath):
+            return len(self.xpath) < len(other.xpath)
+
+        # lexicographically smaller xpath is better
+        # e.g. /html/body/div[1] is better than /html/body/div[2]
+        return self.xpath < other.xpath
 
 
 @dataclass
