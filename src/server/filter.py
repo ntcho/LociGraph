@@ -28,22 +28,6 @@ class Relevancy(float, Enum):
 # regex namespace for lxml XPath
 regexpNS = {"re": "http://exslt.org/regular-expressions"}
 
-tag_blacklist = set(
-    [
-        "html",
-        "head",
-        "title",
-        "meta",
-        "iframe",
-        "body",
-        "script",
-        "style",
-        "path",
-        "svg",
-        "br",
-    ]
-)
-
 tag_relevance_level = {
     "aside": Relevancy.LOW,
     "nav": Relevancy.LOW,
@@ -188,9 +172,6 @@ def get_elements(
 
         # filter elements with the XPath query
         xpath_eval: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
-
-        # remove elements with blacklisted tags
-        xpath_eval = [e for e in xpath_eval if e.tag not in tag_blacklist]
 
         # create Element objects from the filtered elements
         filtered_elements = list(
