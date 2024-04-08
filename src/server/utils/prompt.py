@@ -9,48 +9,97 @@ import re
 
 from lxml.html import HtmlElement
 
-from dtos import ExtractionEvent, Relation, RelationQuery
+from dtos import ActionElement, ExtractionEvent, Relation, RelationQuery
 
 
 # Prompt to extract relation JSON from text
 extract_system_prompt = """
-You are tasked to extract all relation triplets from the input. The relation format must be in the format of [entity, attribute, value]. If no relations are found in the content, write `[]`.
+You are tasked to extract all relation triplets from a webpage. The output must be in the format of [entity, attribute, value]. If no relations are found, write `No relations found`.
 
-The following are some examples of the input and output format:
+The following are some examples:
 
-Content: `Alex was born in New York on Jaunary 1st, 2000.`
+Title: `About Alex | alex.com`
+Content:
+```
+Born
+Jaunary 1, 2000
+New York City, NY, US
+```
 Query: [Alex, date of birth, ?]
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. The content provides the birthday January 1st, 2000. Since the content provides the date of birth, we should extract the relation [Alex, date of birth, January 1st, 2000]. Additionally, the content provides the birthplace New York City. Since this is related to Alex, we should extract the relation [Alex, place of birth, New York City] as an additional relation.
 Output:
 Query relations:
-- [Alex, date of birth, January 1st, 2000]
+- [Alex, date of birth, January 1, 2000]
 Additional relations:
-- [Alex, place of birth, New York]
+- [Alex, place of birth, New York City]
 
-Content: `Alex studied Computer Science at Bard College.`
+Title: `Alex | LinkedIn`
+Content:
+```
+Education
+
+Bard College
+Computer Science
+
+Timbuktu High School
+Mathematics
+```
 Query: [Alex, educated at, ?]
+Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. The content provides that Alex studied Computer Science at Bard College. Since this is related to Alex, we should extract the relation [Alex, educated at, Bard College] and [Bard College, academic major, Computer Science]. Additionally, the content provides that Bard College offers Computer Science. Since this is a valid relation, we should extract the relation [Bard College, offers, Computer Science] as an additional relation. The content also provides that Alex studied Mathematics at Timbuktu High School. Since this is related to Alex, we should extract the relation [Alex, educated at, Timbuktu High School].
 Output:
 Query relations:
 - [Alex, educated at, Bard College]
+- [Alex, educated at, Timbuktu High School]
 Additional relations:
 - [Alex, academic major, Computer Science]
 - [Bard College, offers, Computer Science]
 
-Content: `Alex works at ACME Inc as a software engineer.`
+Title: `Alex - Wikipedia`
+Content:
+```
+Alex works at ACME Inc as a software engineer. Previously, Alex worked at XYZ Corp as a data scientist. Alex has a degree in Computer Science from Bard College.
+```
 Query: [Alex, ?, ?]
+Reasoning: Let's think step by step. We need to find all relevant relations for Alex. The content provides that Alex works at ACME Inc as a software engineer. Since this is related to Alex, we should extract the relation [Alex, works at, ACME Inc] and [Alex, job title, software engineer]. The content also provides that Alex previously worked at XYZ Corp as a data scientist. Since this is related to Alex, we should extract the relation [Alex, worked at, XYZ Corp] and [Alex, job title, data scientist]. The content also provides that Alex has a degree in Computer Science from Bard College. Since this is related to Alex, we should extract the relation [Alex, majored in, Computer Science] and [Alex, graduated from, Bard College].
+Output:
 Query relations:
 - [Alex, works at, ACME Inc]
 - [Alex, job title, software engineer]
+- [Alex, worked at, XYZ Corp]
+- [Alex, job title, data scientist]
+- [Alex, majored in, Computer Science]
+- [Alex, graduated from, Bard College]
+
+Title: `Fwd: RSVP for Alex's Birthday Party | Gmail`
+Content:
+```
+Hi everyone,
+
+Please RSVP for Alex's birthday party this Friday at 7:00 PM.
+
+Thanks!
+```
+Query: [Alex, date of birth, ?]
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. The content provides that Alex's birthday party is this Friday at 7:00 PM. Since this is not the date of birth, we should write `No relations found`.
+Output:
+No relations found
 """
 
+# TODO-FUTURE: use Auto-CoT
+# Read more: https://www.promptingguide.ai/techniques/cot#automatic-chain-of-thought-auto-cot
+
 extract_prompt_template = """
-Content: `<content>`
+Title: <title>
+Content:
+```
+<content>
+```
 Query: <query>
-Output:
-"""
+Reasoning: Let's think step by step. """
 
 
 def generate_extract_prompt(
-    elements: list[HtmlElement], query: RelationQuery
+    title: str, elements: list[HtmlElement], query: RelationQuery
 ) -> list[dict[str, str]]:
     """Generate a prompt to extract relation JSON from text.
 
@@ -60,10 +109,10 @@ def generate_extract_prompt(
     """
 
     element_contents: list[str] = [e.text_content() for e in elements]
-    content = "\n".join(element_contents)
-    content = re.sub(r"\n+", "\n", content)
+    content = "\n\n".join(element_contents)
 
     prompt = extract_prompt_template
+    prompt = prompt.replace("<title>", title)
     prompt = prompt.replace("<content>", content)
     prompt = prompt.replace("<query>", str(query))
 
@@ -73,44 +122,140 @@ def generate_extract_prompt(
     ]
 
 
+def parse_extract_response(response: str) -> list[Relation]:
+    """Parse the response from the extraction prompt.
+
+    Args:
+        response (str): The response from the extraction prompt.
+
+    Returns:
+        list[Relation]: The list of extracted relations.
+    """
+
+    relations: list[Relation] = []
+
+    if "no relations found" in response.lower():
+        return relations
+
+    for line in response.split("\n"):
+        if not line:
+            continue
+
+        # Extract the relation from the line
+        match = re.match(r"\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+
+        if match:
+            relations.append(Relation(*match.groups()))
+
+    return relations
+
+
 # Prompt to evaluate relation JSON
 evaluate_prompt_template = """
+You are tasked to evaluate relation extraction results for the given query. If you believe the extraction results are correct, write `STOP`. If you believe the extraction results are incorrect, write `CONTINUE`.
 
+The following are some examples:
+
+Query: [Alex, date of birth, ?]
+Extraction results:
+- [Alex, born on, 2000]
+- [Alex, birthday, January 1, 2000]
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. [Alex, born on, 2000] is incorrect because it only provides the year of birth. [Alex, birthday, January 1st, 2000] is correct because it provides the date of birth as January 1st, 2000. Since at least one extraction result is correct, we should `STOP`.
+Answer: STOP
+Correct relation:
+- [Alex, date of birth, January 1, 2000]
+
+Query: [Alex, educated at, ?]
+Extraction results:
+- [Alex, studied, Computer Science]
+- [Alex, graduated in, 2020]
+Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. [Alex, studied, Computer Science] is incorrect because it only provides the academic major. [Alex, graduated in, 2020] is incorrect because it only provides the year of graduation. Since none of the extraction results are correct, we should `CONTINUE`.
+Answer: CONTINUE
+
+Query: [Alex, ?, ?]
+Extraction results:
+- [Alex, works at, ACME Inc]
+- [ACME Inc, location, New York]
+- [Alex, job title, software engineer]
+Reasoning: Let's think step by step. We need to find all relevant relations for Alex. [Alex, works at, ACME Inc] is correct because it provides the company where Alex works. [ACME Inc, location, New York] is incorrect because it provides the location of the company. [Alex, job title, software engineer] is correct because it provides the job title of Alex. Since at least one extraction result is correct, we should `STOP`.
+Answer: STOP
+Correct relations:
+- [Alex, works at, ACME Inc]
+- [Alex, job title, software engineer]
 """
+
+evaluate_prompt_template = """
+Query: <query>
+Extraction results:
+<relations>
+Reasoning: Let's think step by step. """
 
 
 def generate_evaluate_prompt(
-    event: ExtractionEvent, results: list[Relation]
+    query: RelationQuery, results: list[Relation]
 ) -> list[dict[str, str]]:
+    """Generate a prompt to evaluate relation extraction results.
 
-    prompt = evaluate_prompt_template.replace("$url", event.data.data.url)
+    Args:
+        query (RelationQuery): The query of relations to evaluate.
+        results (list[Relation]): The list of extracted relations to evaluate.
+    """
 
-    if event.data.data.content:
-        prompt = prompt.replace("$browser_content", event.data.data.content)
-    else:
-        # Remove the content placeholder if it is not available
-        prompt = prompt.replace(
-            "CURRENT BROWSER CONTENT:\n```\n$browser_content\n```\n", ""
-        )
+    relations = "\n".join([f"- {str(r)}" for r in results])
 
-    try:
-        prompt = prompt.replace("$objective", event.query.getobjective())
-    except AttributeError:
-        raise RuntimeError("Query objective not found")
+    prompt = evaluate_prompt_template
+    prompt = prompt.replace("<query>", str(query))
+    prompt = prompt.replace("<relations>", relations)
 
-    return [{"role": "user", "content": "Lorem ipsum"}]
+    return [
+        {"role": "system", "content": evaluate_prompt_template},
+        {"role": "user", "content": prompt},
+    ]
 
 
+def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
+    """Parse the response from the evaluation prompt.
+
+    Args:
+        response (str): The response from the evaluation prompt.
+
+    Returns:
+        tuple[bool, list[Relation]]: A tuple containing a boolean indicating if the extraction results are correct and the list of extracted relations.
+    """
+
+    answer_stop = "answer: stop" in response.lower()
+    answer_continue = "answer: continue" in response.lower()
+
+    # check if the response contains either `STOP` or `CONTINUE`
+    if answer_stop is not answer_continue:
+        raise RuntimeError("The response must contain either `STOP` or `CONTINUE`.")
+
+    relations = []
+
+    for line in response.split("\n"):
+        if not line:
+            continue
+
+        # Extract the relation from the line
+        match = re.match(r"\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+
+        if match:
+            # TODO: handle possible argument mismatch
+            relations.append(Relation(*match.groups()))
+
+    return answer_stop, relations
+
+
+# TODO: add more few-shot examples for action prediction
 # Prompt to predict next action
-predict_prompt_template = """
-Imagine that you are imitating humans using a web browser to achieve an objective, step by step.
+act_prompt_template = """
+You are tasked to predict the next action to achieve the given objective. Imagine you are imitating humans using a web browser to achieve an objective, step by step.
 
 You can take these actions:
 
     CLICK [X] - click element with id X. You can only click on LINK and BUTTON!
     TYPE [X] 'text' - type the specified text into INPUT element with id X.
     TYPESUBMIT [X] 'text' - same as TYPE above, except this command presses ENTER to submit the form
-    STOP 'answer' - stop the process and provide the final answer
 
 LINK, INPUT, BUTTON elements are represented like this:
 
@@ -120,73 +265,95 @@ LINK, INPUT, BUTTON elements are represented like this:
 
 Based on your given objective, issue whatever command you believe will get you closest to achieving your goal.
 
-==================================================
+The following are some examples:
 
-The current browser status is provided below.
+Page URL: https://gmail.com
+Page title: `Inbox - Gmail`
+Actions:
+- [1] BUTTON 'Compose'
+- [2] INPUT 'Search mail'
+- [3] LINK 'Inbox' (href='/inbox')
+- [4] LINK 'Sent' (href='/sent')
+Objective: Find the value of attribute `date of birth` of entity `Alex`.
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for the date of birth of Alex. We can search with the query `date of birth Alex` by typing it in the search mail input. Therefore, I will issue the command `TYPE [2] 'date of birth Alex'`.
+Command: TYPE [2] 'date of birth Alex'
 
-CURRENT PAGE URL: $url
-CURRENT PAGE TITLE: $title
-
-CURRENT BROWSER CONTENT:
-```
-$browser_content
-```
-
-PREVIOUS COMMANDS:
-```
-$previous_command
-```
-
-OBJECTIVE: $objective
-
-
-Follow the following guidance to think step by step before outlining the next action step at the current stage:
-
-1. IDENTIFY CURRENT CONTENT:
-First, think about what the current webpage is.
-
-2. ANALYZE PREVIOUS COMMANDS:
-Second, combined with the content, analyze each step of the previous action history 
-and their intention one by one. Particularly, pay more attention to the last step, 
-which may be more related to what you should do now as the next step.
-
-3. DECIDE NEXT COMMAND:
-Last, conclude your answer using the format below. Ensure your answer is strictly 
-adhering to the format provided below. Please do not leave any explanation in your 
-answers of the final standardized format part, and this final part should be clear 
-and certain.
-
-To be successful, it is important to follow the following rules: 
-1. You should only issue command `CLICK [X]`, `TYPE [X] 'text'` or `TYPESUBMIT [X] 'text'`.
-2. You should only issue ONE command at a time.
-
-YOUR COMMAND:
+Page URL: https://wikipedia.org/en/Alex
+Page title: `Alex - Wikipedia`
+Actions:
+- [1] LINK 'Bard College - Alex' (href='https://bard.edu/people/alex')
+- [2] LINK 'Alex | LinkedIn' (href='https://linkedin.com/in/alex')
+- [3] LINK 'ACME Inc - Alex' (href='https://acme.com/people/alex')
+Objective: Find the value of attribute `graduated in` of entity `Alex`.
+Reasoning: Let's think step by step. We need to find the year Alex graduated. Since the current page is Alex's Wikipedia page, we should click on the LinkedIn link to find the educational background of Alex. Therefore, I will issue the command `CLICK [2]`.
+Command: CLICK [2]
 """
 
+act_prompt_template = """
+Page URL: <url>
+Page title: <title>
+Actions:
+<actions>
+Objective: <objective>
+Reasoning: Let's think step by step. """
 
-def generate_predict_prompt(extraction_result: ExtractionEvent) -> list[dict[str, str]]:
+# TODO-FUTURE: Use top-K prompting strategy to generate multiple answers and evaluate the best one
+# See more: https://arxiv.org/pdf/2306.13063.pdf#page=28.20
 
-    # TODO: See https://arxiv.org/pdf/2306.13063.pdf#page=28.20 for evaluation prompt details
 
-    prompt = predict_prompt_template.replace("$url", extraction_result.data.data.url)
+def generate_act_prompt(extraction_result: ExtractionEvent) -> list[dict[str, str]]:
+    """Generate a prompt to predict the next action to achieve the given objective.
 
-    if extraction_result.data.data.title:
-        prompt = prompt.replace("$title", extraction_result.data.data.title)
-    else:
-        # Remove the title placeholder if it is not available
-        prompt = prompt.replace("CURRENT PAGE TITLE: $title\n", "")
+    Args:
+        extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
+    """
 
-    if extraction_result.data.data.content:
-        prompt = prompt.replace("$browser_content", extraction_result.data.data.content)
-    else:
-        # Remove the content placeholder if it is not available
-        prompt = prompt.replace(
-            "CURRENT BROWSER CONTENT:\n```\n$browser_content\n```\n", ""
+    title = extraction_result.data.data.title
+
+    prompt = act_prompt_template
+    prompt = prompt.replace("<url>", extraction_result.data.data.url)
+    prompt = (
+        prompt.replace("<title>", title)
+        if title is not None
+        else prompt.replace("Page title: <title>\n", "")
+    )
+    prompt = prompt.replace(
+        "<actions>",
+        "\n".join(
+            [
+                f"- [{i}] {str(a)}"  # TODO: add __str__ method and ranking to ActionElement
+                for i, a in enumerate(extraction_result.data.data.actions)
+            ]
+        ),
+    )
+    prompt = prompt.replace("<objective>", extraction_result.query.getobjective())
+
+    return [
+        {"role": "system", "content": act_prompt_template},
+        {"role": "user", "content": prompt},
+    ]
+
+
+def parse_act_response(
+    response: str, actions: dict[int, ActionElement]
+) -> ActionElement:
+    """Parse the response from the action prediction prompt.
+
+    Args:
+        response (str): The response from the action prediction prompt.
+
+    Returns:
+        ActionElement: The action element predicted by the user.
+    """
+
+    match = re.match(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
+
+    if not match:
+        raise RuntimeError(
+            "The response must be in the format 'CLICK [X]', 'TYPE [X] text', or 'TYPESUBMIT [X] text'."
         )
 
-    try:
-        prompt = prompt.replace("$objective", extraction_result.query.getobjective())
-    except AttributeError:
-        raise RuntimeError("Query objective not found")
+    # TODO: handle possible argument mismatch
+    action, index, text = match.groups()
 
-    return [{"role": "user", "content": "Lorem ipsum"}]
+    return actions[int(index)]
