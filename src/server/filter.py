@@ -102,15 +102,7 @@ def get_xpath_queries(query: RelationQuery) -> list[tuple[str, Relevancy]]:
 
     # add all keywords + extended keywords from the attribute
     if query.attribute is not None:
-        expanded_keywords = expand_keywords([query.attribute])
-
-        # add words of the keyword phrase without stopwords
-        # e.g. "attended school at" -> ["attended", "school"] ("at" is a stopword)
-        for keyword, relevancy in expanded_keywords:
-            for word in keyword.split(" "):
-                if word not in stopwords:
-                    # add keyword with relevance level
-                    xpath_keywords.append((word, relevancy))
+        xpath_keywords.extend(expand_keywords([query.attribute]))
 
     # filter top K keywords by relevance level
     xpath_keywords = sorted(xpath_keywords, key=lambda item: item[1], reverse=True)
