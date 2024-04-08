@@ -130,17 +130,9 @@ def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
     if len(keywords) == 0:
         return None
 
-    # filter elements with keywords that are not hidden
+    # filter elements with keywords
     xpath_query = " | ".join(
-        [
-            f"//body//*[re:test(text(), '\\b{keyword}\\b', 'i') \
-and not(contains(@style, 'display: none')) \
-and not(contains(@class, 'hidden')) \
-and not(contains(@class, 'none')) \
-and not(contains(@style, 'visibility: hidden')) \
-and not(contains(@style, 'visibility: hidden'))]"
-            for keyword in keywords
-        ]
+        [f"//body//*[re:test(text(), '\\b{keyword}\\b', 'i')]" for keyword in keywords]
     )
 
     return xpath_query
