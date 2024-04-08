@@ -171,7 +171,9 @@ def get_elements(
                 lambda element: Element(
                     xpath=tree.getpath(element),
                     html_element=element,
-                    content=re.sub(r"\s+", " ", element.text_content()).strip(),
+                    content=re.sub(
+                        r" +", " ", re.sub(r"\n\s*", "\n", element.text_content())
+                    ).strip(),  # remove extra spaces and newlines
                     relevance={
                         "content": float(relevancy),
                         "location": float(
