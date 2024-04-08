@@ -98,6 +98,71 @@ input_button_selector = " or ".join(
     ]
 )
 
+# html tags for elements that are purely cosmetic and have no semantic meaning
+tag_drop_tags = [
+    "a",
+    "button",
+    "abbr",
+    "b",
+    "bdi",
+    "bdo",
+    "cite",
+    "code",
+    "data",
+    "dfn",
+    "em",
+    "i",
+    "kbd",
+    "mark",
+    "meter",
+    "output",
+    "p",
+    "progress",
+    "q",
+    "ruby",
+    "rp",
+    "rt",
+    "s",
+    "samp",
+    "small",
+    "span",
+    "strong",
+    "sub",
+    "sup",
+    "time",
+    "u",
+    "var",
+    "del",
+    "ins",
+]
+
+# html tags for elements that are not text content
+tree_drop_tags = [
+    "head",
+    "title",
+    "code",
+    "script",
+    "noscript",
+    "style",
+    "link",
+    "meta",
+    "iframe",
+    "base",
+    "svg",
+    "path",
+    "br",
+    "wbr",
+]
+
+# html element attributes that are not visible
+tree_drop_attributes = [
+    "contains(@class, 'hidden')",
+    "contains(@class, 'invisible')",
+    "contains(@class, 'none')",
+    "contains(@style, 'display: none')",
+    "contains(@style, 'visibility: hidden')",
+]
+
 
 def extract_html(
     html: str, url: str
@@ -125,9 +190,25 @@ def extract_html(
 
     log.info(f"Parsed title: `{title}`")
 
-    """
-    Extract elements with actions from the HTML
-    """
+    actions = extract_actions(root, tree)
+
+    root, tree = clean_html(root, tree)
+
+    return root, tree, title, actions
+
+
+def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement]:
+    """Extract all interactable elements from the HTML.
+
+    Args:
+        root (HtmlElement): Root element of the HTML
+        tree (_ElementTree): Element tree of the HTML
+        styles (list[HtmlElement]): List of <style> elements containing CSS
+
+    Returns:
+        list[ActionElement]: List of interactable elements"""
+
+    ### * Extract all interactable elements from the HTML
 
     links: list[HtmlElement] = []
     buttons: list[HtmlElement] = []
@@ -177,8 +258,98 @@ def extract_html(
     # * Extract SELECT elements
     # dropdowns.extend(root.xpath("//select")) # TODO: add support for <select> tags
 
+    return get_actions_from_element(tree, links, buttons, inputs)
+
+
+def clean_html(
+    root: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Remove non-semantic elements from the HTML.
+
+    Args:
+        root (HtmlElement): Root element of the HTML
+        tree (_ElementTree): Element tree of the HTML
     """
-    Create ActionTarget objects from the extracted elements
+
+    # remove elements that are not visible
+    # e.g. <div style="display: none">...</div> -> ""
+    for attr in tree_drop_attributes:
+        elements = root.xpath(f"//*[{attr}]")
+        for e in elements:
+            e.drop_tree()
+        log.info(f"drop_tree {len(elements)} elements with `{attr}`")
+
+    # remove comments
+    for e in root.xpath("//comment()"):
+        try:
+            e.drop_tree()
+        except AssertionError:
+            pass
+
+    # remove empty elements
+    while True:
+        elements = root.xpath("//*[not(normalize-space())]")
+
+        if len(elements) == 0:
+            break
+
+        for e in elements:
+            try:
+                e.tail = " " + e.tail if e.tail is not None else " "
+                e.drop_tree()
+            except AssertionError:
+                pass
+
+    # remove tags from elements that contain only one child element
+    while True:
+        elements = root.xpath("//*[count(*) = 1]")
+
+        if len(elements) == 0:
+            break
+
+        for e in elements:
+            e.tail = " " + e.tail if e.tail is not None else " "
+            e.drop_tag()
+
+    # remove elements that doesn't contain content
+    # e.g. <style>...</style> -> ""
+    for tag in tree_drop_tags:
+        elements = root.xpath(f"//{tag}")
+        for e in elements:
+            e.drop_tree()
+        log.info(f"drop_tree {len(elements)} <{tag}> tags")
+
+    # remove tags that are purely cosmetic
+    # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
+    for tag in tag_drop_tags:
+        elements = root.xpath(f"//{tag}")
+        for e in elements:
+            e.tail = " " + e.tail if e.tail is not None else " "
+            e.drop_tag()
+        log.info(f"drop_tag {len(elements)} <{tag}> tags")
+
+    # remove attributes from all elements
+    for e in root.iter():  # type: ignore
+        e.attrib.clear()
+
+    return root, tree
+
+
+def get_actions_from_element(
+    tree: _ElementTree,
+    links: list[HtmlElement],
+    buttons: list[HtmlElement],
+    inputs: list[HtmlElement],
+) -> list[ActionElement]:
+    """Create ActionElement objects from the extracted elements
+
+    Args:
+        links (list[HtmlElement]): List of <a> elements
+        buttons (list[HtmlElement]): List of <button> elements
+        inputs (list[HtmlElement]): List of <input> elements
+
+    Returns:
+        list[ActionElement]: List of ActionElement objects
     """
 
     actions: list[ActionElement] = []
@@ -248,12 +419,12 @@ def extract_html(
             )
         )
 
-    log.info(f"Created ActionTargets [{len(actions)} actions]")
+    log.info(f"Created ActionElements [{len(actions)} actions]")
     log.debug(
-        f"Created ActionTargets: \n```\n{pformat(actions[:3])}\n{pformat(actions[-3:])}\n```"
+        f"Created ActionElements: \n```\n{pformat(actions[:3])}\n{pformat(actions[-3:])}\n```"
     )
 
-    return root, tree, title, actions
+    return actions
 
 
 def get_selectors_from_rule(
