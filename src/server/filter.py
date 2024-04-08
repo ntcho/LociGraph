@@ -231,14 +231,22 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     all_keywords = []
     results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
 
-    # add all parts of the keyword without stopwords
-    # e.g. "studied at" -> ["studied at", "studied"] ("at" is a stopword)
     for keyword in keywords:
 
-        # add keyword itself
+        # add all WikiData property aliases
+        try:
+            for k in index[keyword]:
+                results.append((k, Relevancy.HIGHEST))
+
+            log.info(f"  alias: added {index[keyword]}")
+        except KeyError:
+            pass  # no aliases found
+
+        # add keyword itself to search for synonyms
         all_keywords.append(keyword)
 
-        # add parts of the keyword
+        # add all parts of the keyword without stopwords
+        # e.g. "studied at" -> ["studied at", "studied"] ("at" is a stopword)
         for word in keyword.split(" "):
             if word not in stopwords:
                 all_keywords.append(word)
@@ -270,18 +278,9 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
 
                 log.info(f"    related: added {related_synset.lemmas()}")
 
-        # add all WikiData property aliases
-        try:
-            for k in index[keyword]:
-                results.append((k, Relevancy.HIGHEST))
-
-            log.info(f"  alias: added {index[keyword]}")
-        except KeyError:
-            pass  # no aliases found
-
     # remove stopwords from expanded keywords
     results = [(k, r) for k, r in results if k not in stopwords]
 
-    log.debug(f"expanded keywords: \n{pformat(results, sort_dicts=False)}")
+    # log.debug(f"expanded keywords: \n{pformat(results, sort_dicts=False)}")
 
     return results
