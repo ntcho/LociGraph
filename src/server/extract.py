@@ -8,15 +8,16 @@ log.setLevel(_log.LEVEL)
 import requests
 from pprint import pformat
 
-from lxml.html import HtmlElement
 from litellm import completion
 
-from dtos import Relation, RelationQuery
-from utils.prompt import generate_extract_prompt
+from dtos import Element, Relation, RelationQuery
+from utils.prompt import generate_extract_prompt, parse_extract_response
+from utils.dev import get_timestamp
+from utils.json import write_json
 
 
 def extract_mrebel(
-    elements: list[HtmlElement], query: RelationQuery
+    elements: list[Element], query: RelationQuery
 ) -> list[Relation] | None:
     """Extract relation triplets with mREBEL model.
 
@@ -28,7 +29,7 @@ def extract_mrebel(
         list[Relation]: List of extracted relations triplets or None if the
         extraction failed.
     """
-    element_contents: list[str] = [e.text_content() for e in elements]
+    element_contents: list[str] = [e.content for e in elements]
 
     response = requests.post(
         "http://localhost:8001/extract/",
@@ -52,13 +53,14 @@ def extract_mrebel(
 
 
 def extract_llm(
-    elements: list[HtmlElement], query: RelationQuery
+    elements: list[Element], query: RelationQuery, title: str | None
 ) -> list[Relation] | None:
     """Extract relation triplets with LLMs.
 
     Args:
-        elements (list[HtmlElements]): List of HTML elements to extract relations from.
-        target (RelationQuery): The query of relations to extract.
+        elements (list[Element]): List of elements to extract relations from.
+        query (RelationQuery): The query of relations to extract.
+        title (str): The title of the webpage.
 
     Returns:
         list[Relation]: List of extracted relations triplets or None if the
@@ -68,18 +70,22 @@ def extract_llm(
     try:
         response = completion(
             model="gemini/gemini-1.5-pro",
-            messages=generate_extract_prompt(elements, query),
+            messages=generate_extract_prompt(title, elements, query),
             mock_response="(Alex, studied at, Bard College)\n(Alex, majored, Computer Science)",
         )
 
         # TODO: add observability callbacks
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
-        log.info(pformat(response))
+        log.debug(pformat(response))
 
-        message = response["choices"][0]["message"]
+        # Save the response to a file
+        write_json(f"response_{get_timestamp()}.json", response)
 
-        return []
+        results = parse_extract_response(response["choices"][0]["message"]["content"])  # type: ignore
+
+        return results
+
     except Exception as e:
         # See more: https://docs.litellm.ai/docs/exception_mapping
         log.error(f"Failed to extract relations. {type(e)}: {e}")
