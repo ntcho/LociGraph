@@ -69,10 +69,21 @@ class ActionElement(Element):
         html (HtmlElement): The HTML element.
         html_element (str): The text content or input value of the element.
         details (dict | None): Additional attributes of the element (e.g. href, placeholder, etc.).
+        id (int): The unique identifier of the element. Used to reference the element in actions.
         type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
     """
 
+    id: int = -1
     type: Literal["LINK", "BUTTON", "INPUT"] = "LINK"
+
+    def __str__(self) -> str:
+        if self.id < 0:
+            raise ValueError("Element ID not set")
+
+        if self.details is None:
+            return f"[{self.id}] {self.type} '{self.content}'"
+
+        return f"[{self.id}] {self.type} '{self.content}' ({self.getdetails()})"
 
 
 @dataclass
