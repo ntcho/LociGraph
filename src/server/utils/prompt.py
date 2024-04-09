@@ -7,9 +7,7 @@ log.setLevel(_log.LEVEL)
 
 import re
 
-from lxml.html import HtmlElement
-
-from dtos import ActionElement, ExtractionEvent, Relation, RelationQuery
+from dtos import Action, ActionElement, Element, Relation, RelationQuery
 
 
 # Prompt to extract relation JSON from text
@@ -89,7 +87,7 @@ No relations found
 # Read more: https://www.promptingguide.ai/techniques/cot#automatic-chain-of-thought-auto-cot
 
 extract_prompt_template = """
-Title: <title>
+Page title: <title>
 Content:
 ```
 <content>
@@ -99,7 +97,7 @@ Reasoning: Let's think step by step. """
 
 
 def generate_extract_prompt(
-    title: str, elements: list[HtmlElement], query: RelationQuery
+    title: str | None, elements: list[Element], query: RelationQuery
 ) -> list[dict[str, str]]:
     """Generate a prompt to extract relation JSON from text.
 
@@ -108,11 +106,15 @@ def generate_extract_prompt(
         target (RelationQuery): The query of relations to extract.
     """
 
-    element_contents: list[str] = [e.text_content() for e in elements]
+    element_contents: list[str] = [e.content for e in elements]
     content = "\n\n".join(element_contents)
 
     prompt = extract_prompt_template
-    prompt = prompt.replace("<title>", title)
+    prompt = (
+        prompt.replace("<title>", title)
+        if title is not None
+        else prompt.replace("Page title: <title>\n", "")
+    )
     prompt = prompt.replace("<content>", content)
     prompt = prompt.replace("<query>", str(query))
 
@@ -248,6 +250,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
 
 # TODO: add more few-shot examples for action prediction
 # Prompt to predict next action
+# Inspired by https://github.com/nat/natbot
 act_prompt_template = """
 You are tasked to predict the next action to achieve the given objective. Imagine you are imitating humans using a web browser to achieve an objective, step by step.
 
@@ -295,23 +298,23 @@ Page title: <title>
 Actions:
 <actions>
 Objective: <objective>
-Reasoning: Let's think step by step. """
+Reasoning: Let's think step by step. """  # TODO: add previous actions and reasoning
 
-# TODO-FUTURE: Use top-K prompting strategy to generate multiple answers and evaluate the best one
+# FUTURE: Use top-K prompting strategy to generate multiple answers and evaluate the best one
 # See more: https://arxiv.org/pdf/2306.13063.pdf#page=28.20
 
 
-def generate_act_prompt(extraction_result: ExtractionEvent) -> list[dict[str, str]]:
+def generate_act_prompt(
+    url: str, title: str | None, actions: list[ActionElement], query: RelationQuery
+) -> list[dict[str, str]]:
     """Generate a prompt to predict the next action to achieve the given objective.
 
     Args:
         extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
     """
 
-    title = extraction_result.data.data.title
-
     prompt = act_prompt_template
-    prompt = prompt.replace("<url>", extraction_result.data.data.url)
+    prompt = prompt.replace("<url>", url)
     prompt = (
         prompt.replace("<title>", title)
         if title is not None
@@ -319,14 +322,9 @@ def generate_act_prompt(extraction_result: ExtractionEvent) -> list[dict[str, st
     )
     prompt = prompt.replace(
         "<actions>",
-        "\n".join(
-            [
-                f"- [{i}] {str(a)}"  # TODO: add __str__ method and ranking to ActionElement
-                for i, a in enumerate(extraction_result.data.data.actions)
-            ]
-        ),
+        "\n".join([f"- {str(a)}" for a in actions]),
     )
-    prompt = prompt.replace("<objective>", extraction_result.query.getobjective())
+    prompt = prompt.replace("<objective>", query.getobjective())
 
     return [
         {"role": "system", "content": act_prompt_template},
@@ -334,16 +332,15 @@ def generate_act_prompt(extraction_result: ExtractionEvent) -> list[dict[str, st
     ]
 
 
-def parse_act_response(
-    response: str, actions: dict[int, ActionElement]
-) -> ActionElement:
+def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
     """Parse the response from the action prediction prompt.
 
     Args:
         response (str): The response from the action prediction prompt.
+        actions (list[ActionElement]): The list of available actions to predict from.
 
     Returns:
-        ActionElement: The action element predicted by the user.
+        Action: The next action predicted by the LLM.
     """
 
     match = re.match(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
@@ -354,6 +351,11 @@ def parse_act_response(
         )
 
     # TODO: handle possible argument mismatch
-    action, index, text = match.groups()
+    action_type, id, text = match.groups()
 
-    return actions[int(index)]
+    action_element = list(filter(lambda e: e.id == int(id), actions))
+
+    if len(action_element) is not 0:
+        raise RuntimeError(f"Action element with id {id} not found.")
+
+    return Action(type=action_type, element=action_element[0], value=text)  # type: ignore
