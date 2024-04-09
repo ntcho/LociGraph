@@ -132,7 +132,7 @@ def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
 
     # filter elements with keywords
     xpath_query = " | ".join(
-        [f"//body//*[re:test(text(), '\\b{keyword}\\b', 'i')]" for keyword in keywords]
+        [f"//*[re:test(text(), '\\b{keyword}\\b', 'i')]" for keyword in keywords]
     )
 
     return xpath_query
@@ -160,7 +160,8 @@ def get_elements(
     results: list[Element] = []
 
     for xpath_query, relevancy in xpath_queries:
-        log.debug(f"Filtering elements with XPath query [{len(xpath_query)}]")
+        log.info(f"Filtering elements with XPath query [{len(xpath_query)}]")
+        # log.debug(f"Filtering elements with XPath query [{relevancy}, {xpath_query}]")
 
         # filter elements with the XPath query
         xpath_eval: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
