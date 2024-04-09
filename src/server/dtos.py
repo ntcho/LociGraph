@@ -24,6 +24,17 @@ class Element:
     details: dict | None = None
     relevance: dict[str, float] | None = None
 
+    def getdetails(self) -> str:
+        """Get the details of the element in a string format `key1='value1', key2='value2', ...`.
+
+        Returns:
+            str: The details of the element. Defaults to an empty string if not set."""
+
+        if self.details is None:
+            return ""
+
+        return ", ".join([f"{k}='{v}'" for k, v in self.details.items()])
+
     def getrelevance(self) -> float:
         """Get the relevance score of the element.
 
