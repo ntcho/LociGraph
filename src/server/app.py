@@ -11,6 +11,7 @@ from parse import parse
 from filter import filter
 from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
+from act import act
 from dtos import Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
 
 
@@ -42,29 +43,50 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
     # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []
 
-    # TODO: possibly use HTTP 102 or WebSocket to send updates for long requests
+    # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
+
     # Extract relations using the app_extract litestar instance
     relations_mrebel = extract_mrebel(relevant_elements, data.query)
     # Extract relations using the LLM APIs
-    relations_llm = extract_llm(relevant_elements, data.query)
+    relations_llm = extract_llm(relevant_elements, data.query, scrape_event.data.title)
 
     if relations_mrebel is None and relations_llm is None:
-        raise Exception("Failed to extract relations.")
+        raise RuntimeError("Failed to extract relations.")
 
     relations.extend(relations_mrebel if relations_mrebel is not None else [])
     relations.extend(relations_llm if relations_llm is not None else [])
 
-    extraction_event = ExtractionEvent(
-        data=scrape_event, query=data.query, results=relations
-    )
-    # upload(extraction_event)  # TODO: add cloud upload functionality
-
     # * Step 4: Evaluate the extraction results
-    evaluation_event = evaluate(extraction_event, relations)
+    is_complete, evaluated_relations = evaluate(data.query, relations)
 
-    # TODO: add confidence level & evaluation
+    if evaluated_relations is None:
+        raise RuntimeError("Failed to evaluate relations.")
 
-    return evaluation_event
+    # * Step 5: Decide next action based on evaluation results
+    if is_complete:
+        return EvaluationEvent(
+            data=ExtractionEvent(scrape_event, data.query, relations),
+            results=evaluated_relations,
+            next_action=None,
+        )
+    else:
+        action = act(
+            scrape_event.data.actions,
+            data.query,
+            scrape_event.data.url,
+            scrape_event.data.title,
+        )
+
+        if action is None:
+            raise RuntimeError("Failed to predict next action.")
+
+        return EvaluationEvent(
+            data=ExtractionEvent(scrape_event, data.query, relations),
+            results=evaluated_relations,
+            next_action=action,
+        )
+
+    # FUTURE: add cloud storage for ExtractionEvent data
 
 
 # Default litestar instance
