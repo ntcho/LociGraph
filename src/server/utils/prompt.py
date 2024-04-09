@@ -119,8 +119,8 @@ def generate_extract_prompt(
     prompt = prompt.replace("<query>", str(query))
 
     return [
-        {"role": "system", "content": extract_system_prompt},
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": extract_system_prompt.strip()},
+        {"role": "user", "content": prompt.strip()},
     ]
 
 
@@ -144,7 +144,7 @@ def parse_extract_response(response: str) -> list[Relation]:
             continue
 
         # Extract the relation from the line
-        match = re.match(r"\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+        match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
         if match:
             relations.append(Relation(*match.groups()))
@@ -210,8 +210,8 @@ def generate_evaluate_prompt(
     prompt = prompt.replace("<relations>", relations)
 
     return [
-        {"role": "system", "content": evaluate_prompt_template},
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": evaluate_prompt_template.strip()},
+        {"role": "user", "content": prompt.strip()},
     ]
 
 
@@ -239,7 +239,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
             continue
 
         # Extract the relation from the line
-        match = re.match(r"\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+        match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
         if match:
             # TODO: handle possible argument mismatch
@@ -327,8 +327,8 @@ def generate_act_prompt(
     prompt = prompt.replace("<objective>", query.getobjective())
 
     return [
-        {"role": "system", "content": act_prompt_template},
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": act_prompt_template.strip()},
+        {"role": "user", "content": prompt.strip()},
     ]
 
 
@@ -343,7 +343,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
         Action: The next action predicted by the LLM.
     """
 
-    match = re.match(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
+    match = re.fullmatch(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
 
     if not match:
         raise RuntimeError(
