@@ -125,7 +125,7 @@ class WebpageData:
 
     url: str
     htmlBase64: str
-    imageBase64: str
+    imageBase64: str  # FUTURE: use screenshot image with multimodal models
     language: str
 
 
@@ -253,13 +253,14 @@ class EvaluationEvent(Event):
     Attributes:
         data (ExtractionEvent): The extraction event including the data and the
         extracted relations.
-        confidence_level (str): The confidence level of the extraction results.
+        confidence_level (str | None): The confidence level of the extraction results.
         next_action (ActionElement | None): The next action to take based on the
     """
 
     data: ExtractionEvent
-    confidence_level: str
-    next_action: ActionElement | None  # stop processing if empty
+    results: list[Relation]
+    next_action: Action | None  # None if extraction is complete
+    confidence_level: str | None = None  # FUTURE: use top-K prompting strategy
 
 
 @dataclass
