@@ -81,13 +81,13 @@ class Action:
 
     Attributes:
         element (ActionElement): The interactive element to perform the action on.
-        type (Literal["CLICK", "TYPE", "TYPESUBMIT", "STOP"]): The type of action.
+        type (Literal["CLICK", "TYPE", "TYPESUBMIT"]): The type of action.
         value (str | None): The value to input. Used for TYPE, TYPESUBMIT and STOP actions.
     """
 
     element: ActionElement
-    type: Literal["CLICK", "TYPE", "TYPESUBMIT", "STOP"]
-    value: str | None  # for TYPE, TYPESUBMIT and STOP
+    type: Literal["CLICK", "TYPE", "TYPESUBMIT"]
+    value: str | None  # for TYPE and TYPESUBMIT
 
 
 @dataclass
