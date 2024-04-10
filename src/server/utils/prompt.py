@@ -358,4 +358,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
     if len(action_element) != 0:
         raise RuntimeError(f"Action element with id {id} not found.")
 
+    if len(action_element) > 1:
+        raise RuntimeError(f"Multiple action elements with id {id} found.")
+
     return Action(type=action_type, element=action_element[0], value=text)  # type: ignore
