@@ -16,6 +16,7 @@ class Element:
         html_element (HtmlElement): The HTML element.
         content (str): The text content of the element.
         details (dict | None): Additional attributes of the element.
+        relevance (dict[str, float] | None): The relevance score of the element.
     """
 
     xpath: str
@@ -77,9 +78,10 @@ class ActionElement(Element):
 
     Attributes:
         xpath (str): The full XPath of the element.
-        html (HtmlElement): The HTML element.
-        html_element (str): The text content or input value of the element.
+        html_element (HtmlElement): The HTML element.
+        content (str): The text content or input value of the element.
         details (dict | None): Additional attributes of the element (e.g. href, placeholder, etc.).
+        relevance (dict[str, float] | None): The relevance score of the element.
         id (int): The unique identifier of the element. Used to reference the element in actions.
         type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
     """
@@ -260,7 +262,7 @@ class EvaluationEvent(Event):
     data: ExtractionEvent
     results: list[Relation]
     next_action: Action | None  # None if extraction is complete
-    confidence_level: str | None = None  # FUTURE: use top-K prompting strategy
+    confidence_level: Optional[str] = None  # FUTURE: use top-K prompting strategy
 
 
 @dataclass
