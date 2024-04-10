@@ -352,49 +352,16 @@ def get_actions_from_element(
         list[ActionElement]: List of ActionElement objects
     """
 
+    id = 0  # unique incremental id for each ActionElement
+
+    def get_id() -> int:
+        nonlocal id
+        id += 1
+        return id
+
     actions: list[ActionElement] = []
 
-    for element in links:
-        content = element.text_content().replace("\n", " ").strip()
-        content = sub(r"\s+", " ", content)  # remove extra spaces
-
-        if len(content) == 0:
-            continue  # skip empty links
-
-        href: str | None = element.get("href", default=None)
-
-        details = {}
-
-        if href is not None:
-            details["href"] = href
-
-        actions.append(
-            ActionElement(
-                xpath=tree.getpath(element),
-                html_element=element,
-                type="LINK",
-                content=content,
-                details=(details if len(details) > 0 else None),
-            )
-        )
-
-    for element in buttons:
-        content = element.text_content().replace("\n", " ").strip()
-        content = sub(r"\s+", " ", content)  # remove extra spaces
-
-        if len(content) == 0:
-            continue  # skip empty buttons
-
-        actions.append(
-            ActionElement(
-                xpath=tree.getpath(element),
-                html_element=element,
-                type="BUTTON",
-                content=content,
-                details=None,
-            )
-        )
-
+    # 1st priority: INPUT actions
     for element in inputs:
         placeholder: str | None = element.get("placeholder", default=None)
         aria_label: str | None = element.get("aria-label", default=None)
@@ -416,6 +383,52 @@ def get_actions_from_element(
                 type="INPUT",
                 content=element.get("value", default=None),
                 details=(details if len(details) > 0 else None),
+                id=get_id(),
+            )
+        )
+
+    # 2nd priority: BUTTON actions
+    for element in buttons:
+        content = element.text_content().replace("\n", " ").strip()
+        content = sub(r"\s+", " ", content)  # remove extra spaces
+
+        if len(content) == 0:
+            continue  # skip empty buttons
+
+        actions.append(
+            ActionElement(
+                xpath=tree.getpath(element),
+                html_element=element,
+                type="BUTTON",
+                content=content,
+                details=None,
+                id=get_id(),
+            )
+        )
+
+    # 3rd priority: LINK actions
+    for element in links:
+        content = element.text_content().replace("\n", " ").strip()
+        content = sub(r"\s+", " ", content)  # remove extra spaces
+
+        if len(content) == 0:
+            continue  # skip empty links
+
+        href: str | None = element.get("href", default=None)
+
+        details = {}
+
+        if href is not None:
+            details["href"] = href
+
+        actions.append(
+            ActionElement(
+                xpath=tree.getpath(element),
+                html_element=element,
+                type="LINK",
+                content=content,
+                details=(details if len(details) > 0 else None),
+                id=get_id(),
             )
         )
 
