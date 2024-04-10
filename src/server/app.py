@@ -12,7 +12,7 @@ from filter import filter
 from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
 from act import act
-from dtos import Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
+from dtos import Action, Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
 
 
 load_dotenv()  # Load environment variables from `.env` file
@@ -34,59 +34,61 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
         process failed.
     """
 
+    query = data.query  # relation query to extract
+
     # * Step 1: Parse the webpage data into paragraphs
-    scrape_event = ScrapeEvent(data=parse(data.data))
+    scrape_event = ScrapeEvent(parse(data.data))
+    webpage_data = scrape_event.data
 
     # * Step 2: Filter relevant elements
-    relevant_elements = filter(scrape_event.data, data.query)
+    relevant_elements = filter(webpage_data, query)
 
     # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []
+    evaluated_relations: list[Relation] | None = []
+    is_complete: bool = False
 
-    # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
+    # skip extraction if no relevant elements found
+    if len(relevant_elements) > 0:
+        # Extract relations using the app_extract litestar instance
+        relations_mrebel = extract_mrebel(relevant_elements, query)
+        # Extract relations using the LLM APIs
+        relations_llm = extract_llm(relevant_elements, query, webpage_data.title)
 
-    # Extract relations using the app_extract litestar instance
-    relations_mrebel = extract_mrebel(relevant_elements, data.query)
-    # Extract relations using the LLM APIs
-    relations_llm = extract_llm(relevant_elements, data.query, scrape_event.data.title)
+        # FUTUER: use asyncio to run both extraction methods concurrently
+        # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
 
-    if relations_mrebel is None and relations_llm is None:
-        raise RuntimeError("Failed to extract relations.")
+        if relations_mrebel is None and relations_llm is None:
+            raise RuntimeError("Failed to extract relations.")
 
-    relations.extend(relations_mrebel if relations_mrebel is not None else [])
-    relations.extend(relations_llm if relations_llm is not None else [])
+        relations.extend(relations_mrebel if relations_mrebel is not None else [])
+        relations.extend(relations_llm if relations_llm is not None else [])
 
-    # * Step 4: Evaluate the extraction results
-    is_complete, evaluated_relations = evaluate(data.query, relations)
+        # * Step 4: Evaluate the extraction results
+        is_complete, evaluated_relations = evaluate(query, relations)
 
-    if evaluated_relations is None:
-        raise RuntimeError("Failed to evaluate relations.")
+        if evaluated_relations is None:
+            raise RuntimeError("Failed to evaluate extraction results.")
 
     # * Step 5: Decide next action based on evaluation results
-    if is_complete:
-        return EvaluationEvent(
-            data=ExtractionEvent(scrape_event, data.query, relations),
-            results=evaluated_relations,
-            next_action=None,
-        )
-    else:
-        action = act(
-            scrape_event.data.actions,
-            data.query,
-            scrape_event.data.url,
-            scrape_event.data.title,
+    next_action: Action | None = None
+
+    if is_complete is False:
+        next_action = act(
+            webpage_data.actions, query, webpage_data.url, webpage_data.title
         )
 
-        if action is None:
+        if next_action is None:
             raise RuntimeError("Failed to predict next action.")
 
-        return EvaluationEvent(
-            data=ExtractionEvent(scrape_event, data.query, relations),
-            results=evaluated_relations,
-            next_action=action,
-        )
-
     # FUTURE: add cloud storage for ExtractionEvent data
+
+    # * Step 6: Return the extracted relations and next action to browser
+    return EvaluationEvent(
+        data=ExtractionEvent(scrape_event, query, relations),
+        results=evaluated_relations,
+        next_action=next_action,
+    )
 
 
 # Default litestar instance
