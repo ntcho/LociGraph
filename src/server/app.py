@@ -66,7 +66,7 @@ async def processHandler(data: Query) -> Response | None:
         # Extract relations using the LLM APIs
         relations_llm = extract_llm(relevant_elements, query, webpage_data.title)
 
-        # FUTUER: use asyncio to run both extraction methods concurrently
+        # FUTURE: use asyncio to run both extraction methods concurrently
         # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
 
         if relations_mrebel is None and relations_llm is None:
