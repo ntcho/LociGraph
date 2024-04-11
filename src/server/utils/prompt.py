@@ -134,12 +134,16 @@ def generate_extract_prompt(
     prompt = prompt.replace("<content>", content)
     prompt = prompt.replace("<query>", str(query))
 
-    return [
+    message = [
         {
             "role": "user",
             "content": "\n\n".join([extract_system_prompt.strip(), prompt.strip()]),
         }
     ]
+
+    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+
+    return message
 
 
 def parse_extract_response(response: str) -> list[Relation]:
@@ -151,6 +155,8 @@ def parse_extract_response(response: str) -> list[Relation]:
     Returns:
         list[Relation]: The list of extracted relations.
     """
+
+    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
 
     relations: list[Relation] = []
 
@@ -171,7 +177,7 @@ def parse_extract_response(response: str) -> list[Relation]:
 
 
 # Prompt to evaluate relation JSON
-evaluate_prompt_template = """
+evaluate_system_prompt = """
 You are tasked to evaluate relation extraction results for the given query. If you believe the extraction results are correct, write `STOP`. If you believe the extraction results are incorrect, write `CONTINUE`.
 
 The following are some examples:
@@ -229,12 +235,16 @@ def generate_evaluate_prompt(
     prompt = prompt.replace("<query>", str(query))
     prompt = prompt.replace("<relations>", relations)
 
-    return [
+    message = [
         {
             "role": "user",
-            "content": "\n\n".join([evaluate_prompt_template.strip(), prompt.strip()]),
+            "content": "\n\n".join([evaluate_system_prompt.strip(), prompt.strip()]),
         }
     ]
+
+    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+
+    return message
 
 
 def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
@@ -246,6 +256,8 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
     Returns:
         tuple[bool, list[Relation]]: A tuple containing a boolean indicating if the extraction results are correct and the list of extracted relations.
     """
+
+    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
 
     answer_stop = "answer: stop" in response.lower()
     answer_continue = "answer: continue" in response.lower()
@@ -274,7 +286,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
 
 # Prompt to predict next action
 # Inspired by https://github.com/nat/natbot
-act_prompt_template = """
+act_system_prompt = """
 You are tasked to predict the next action to achieve the given objective. Imagine you are imitating humans using a web browser to achieve an objective, step by step.
 
 You can take these actions:
@@ -362,12 +374,16 @@ def generate_act_prompt(
     )
     prompt = prompt.replace("<objective>", query.getobjective())
 
-    return [
+    message = [
         {
             "role": "user",
-            "content": "\n\n".join([act_prompt_template.strip(), prompt.strip()]),
+            "content": "\n\n".join([act_system_prompt.strip(), prompt.strip()]),
         }
     ]
+
+    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+
+    return message
 
 
 def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
@@ -380,6 +396,8 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
     Returns:
         Action: The next action predicted by the LLM.
     """
+
+    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
 
     match = re.fullmatch(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
 
