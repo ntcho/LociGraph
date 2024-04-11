@@ -115,6 +115,9 @@ async def get_models() -> list[str]:
         list[str]: List of available models.
     """
 
+    if models is None:
+        raise RuntimeError("Failed to read model catalog.")
+
     return list(models.keys())
 
 
@@ -128,6 +131,9 @@ async def get_model_detail(id: str) -> ModelDetail:
     Returns:
         ModelDetail: The details of the model.
     """
+
+    if models is None:
+        raise RuntimeError("Failed to read model catalog.")
 
     try:
         return models[id]

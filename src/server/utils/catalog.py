@@ -15,7 +15,7 @@ CATALOG_PATH = "utils/model-catalog.json"
 CATALOG_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 
 
-def read_catalog() -> dict[str, ModelDetail]:
+def read_catalog() -> dict[str, ModelDetail] | None:
     """Read the model catalog from file.
 
     Note:
@@ -29,8 +29,11 @@ def read_catalog() -> dict[str, ModelDetail]:
         models = read_json(CATALOG_PATH)
         log.info(f"Cached catalog found: {CATALOG_PATH}")
     except FileNotFoundError:
-        log.info(f"Downloading catalog from: {CATALOG_URL}")
-        models = download_catalog()
+        try:
+            log.info(f"Downloading catalog from: {CATALOG_URL}")
+            models = download_catalog()
+        except RuntimeError:
+            return None
 
     return models
 
