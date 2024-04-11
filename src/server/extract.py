@@ -14,43 +14,58 @@ from dtos import Element, Relation, RelationQuery
 from utils.prompt import generate_extract_prompt, parse_extract_response
 from utils.catalog import DEFAULT_MODEL
 from utils.file import write_json
-from utils.dev import get_timestamp
+from utils.dev import get_timestamp, read_mock_response
 
 
-def extract_mrebel(
-    elements: list[Element], query: RelationQuery
-) -> list[Relation] | None:
+def extract(
+    elements: list[Element],
+    query: RelationQuery,
+    title: str | None,
+    model_id: str = DEFAULT_MODEL,
+    mock_response: str | None = read_mock_response("data/mock_response_extract.txt"),
+) -> list[Relation]:
+    """Extract relation triplets from the given elements."""
+
+    results: list[Relation] = []
+
+    results.extend(extract_mrebel(elements))
+    results.extend(extract_llm(elements, query, title, model_id, mock_response))
+
+    # FUTURE: use asyncio to run both extraction methods concurrently
+    # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
+
+    return results
+
+
+def extract_mrebel(elements: list[Element]) -> list[Relation]:
     """Extract relation triplets with mREBEL model.
 
     Args:
         elements (list[HtmlElements]): List of HTML elements to extract relations from.
-        target (RelationQuery): The query of relations to extract.
 
     Returns:
-        list[Relation]: List of extracted relations triplets or None if the
-        extraction failed.
+        list[Relation]: List of extracted relations. Empty list if the extraction failed.
     """
-    element_contents: list[str] = [e.content for e in elements]
 
-    response = requests.post(
-        "http://localhost:8001/extract/",
-        # send all text content of the relevant elements
-        data=(
-            "\n".join(
-                # filter elements with target entity (e.g. paragraph with entity name)
-                [e for e in element_contents if query.entity.lower() in e.lower()]
-            )
-        ),
-    )
-
-    if response.status_code == 201:
-        # unpack json response to list of RelationQuery objects
-        return [Relation(**r) for r in response.json()]
-    else:
-        log.error(
-            f"Failed to extract relations. app_extract returned code {response.status_code}"
+    try:
+        # send a POST request to the app_extract endpoint
+        response = requests.post(
+            "http://localhost:8001/extract/",
+            # send all text content of the relevant elements
+            data=("\n".join([e.content for e in elements])),
         )
-        return None
+
+        if response.ok:
+            # unpack json response to list of RelationQuery objects
+            return [Relation(**r) for r in response.json()]
+        else:
+            log.error(f"{response.json()} (code {response.status_code})")
+            return []
+
+    except Exception as e:
+        log.error(f"Failed to extract relations with mREBEL model.")
+        log.exception(e)
+        return []
 
 
 def extract_llm(
@@ -59,7 +74,7 @@ def extract_llm(
     title: str | None,
     model_id: str = DEFAULT_MODEL,
     mock_response: str | None = None,
-) -> list[Relation] | None:
+) -> list[Relation]:
     """Extract relation triplets with LLMs.
 
     Args:
@@ -94,5 +109,6 @@ def extract_llm(
 
     except Exception as e:
         # See more: https://docs.litellm.ai/docs/exception_mapping
-        log.error(f"Failed to extract relations. {type(e)}: {e}")
-        return None
+        log.error(f"Failed to extract relations with LLM `{model_id}`.")
+        log.exception(e)
+        return []

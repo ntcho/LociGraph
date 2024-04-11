@@ -276,6 +276,9 @@ class EvaluationEvent(Event):
     data: Optional[ExtractionEvent] = None
     confidence_level: Optional[str] = None  # FUTURE: use top-K prompting strategy
 
+    def getresponse(self) -> "Response":
+        return Response(self.results, self.next_action, self.confidence_level)
+
 
 @dataclass
 class Query:

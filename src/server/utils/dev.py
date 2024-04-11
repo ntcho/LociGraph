@@ -1,8 +1,14 @@
-from base64 import b64encode
-from datetime import datetime
+from os import getenv
+
+ENV: str = getenv("ENV", "development")
+
+PROD: bool = ENV == "production"
+DEV: bool = not PROD
 
 
 def read_file_to_base64(file_path: str) -> str:
+    from base64 import b64encode
+
     with open(file_path, "rb") as file:
         file_content = file.read()
         base64_string = b64encode(file_content).decode("utf-8")
@@ -10,5 +16,18 @@ def read_file_to_base64(file_path: str) -> str:
         return base64_string
 
 
+def read_mock_response(file_path: str) -> str | None:
+    try:
+        if DEV:
+            from utils.file import read_txt
+
+            return read_txt(file_path)
+        return None
+    except FileNotFoundError:
+        return None
+
+
 def get_timestamp() -> str:
+    from datetime import datetime
+
     return datetime.now().strftime("%Y%m%d-%H%M%S")

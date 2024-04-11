@@ -1,16 +1,16 @@
+from typing import Optional
 import utils.logging as _log
 
 _log.configure(format=_log.FORMAT)
 log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
-from litestar import Litestar, post, get
-from os import getenv
+from litestar import Litestar, post, get, exceptions
 from dotenv import load_dotenv
 
 from parse import parse
 from filter import filter
-from extract import extract_llm, extract_mrebel
+from extract import extract
 from evaluate import evaluate
 from act import act
 from dtos import (
@@ -26,16 +26,14 @@ from dtos import (
 
 from utils.catalog import read_catalog, DEFAULT_MODEL
 from utils.file import read_txt
+import utils.error as error
 
 
 load_dotenv()  # Load environment variables from `.env` file
 
-ENV: str | None = getenv("ENV")
-DEV: bool = ENV != "production" if ENV is not None else True  # true if not production
-
 
 @post("/process/")
-async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response | None:
+async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
     """Process the given extraction query.
 
     Note:
@@ -52,82 +50,43 @@ async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response 
 
     query = data.query  # relation query to extract
 
-    # * Step 1: Parse the webpage data into paragraphs
-    scrape_event = ScrapeEvent(parse(data.data))
-    webpage_data = scrape_event.data
+    # Step 1: Parse
+    # Parse the base64 webpage data into elements and actions
+    scrape = ScrapeEvent(parse(data.data))
+    webpage = scrape.data
 
-    # * Step 2: Filter relevant elements
-    elements, actions = filter(webpage_data, query)
+    # Step 2: Filter
+    # Filter relevant elements from webpage
+    elements, actions = filter(webpage, query)
 
-    # * Step 3: Extract relations from filtered elements
-    relations: list[Relation] = []
-    evaluated_relations: list[Relation] | None = []
-    is_complete: bool = False
+    # Step 3: Extract
+    # Extract relations from filtered elements
+    extraction = ExtractionEvent(scrape, query, [])
 
-    # skip extraction if no relevant elements found
-    if len(elements) > 0:
+    if len(elements) > 0:  # skip if no elements filtered
+        extraction.results = extract(elements, query, webpage.title, model)
 
-        # Extract relations using the app_extract litestar instance
-        relations_mrebel = extract_mrebel(
-            elements,
-            query,
-        )
+    # Step 4: Evaluate
+    # Evaluate the extraction result
+    evaluation = EvaluationEvent([], None, extraction)
+    completed: bool = False
 
-        # Extract relations using the LLM APIs
-        relations_llm = extract_llm(
-            elements,
-            query,
-            webpage_data.title,
-            model,
-            read_txt("data/mock_response_extract.txt") if DEV else None,
-        )
+    if len(extraction.results) > 0:  # skip if no relations are extracted
+        completed, relations = evaluate(query, extraction.results, model)
+        evaluation.results = relations
 
-        # FUTURE: use asyncio to run both extraction methods concurrently
-        # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
+    # Step 5: Act
+    # Decide next action based on evaluation result
 
-        if relations_mrebel is None and relations_llm is None:
-            raise RuntimeError("Failed to extract relations.")
+    if not completed:  # skip if extraction is complete
+        next_action = act(actions, query, webpage.url, webpage.title, model)
+        evaluation.next_action = next_action
 
-        relations.extend(relations_mrebel if relations_mrebel is not None else [])
-        relations.extend(relations_llm if relations_llm is not None else [])
-
-        # * Step 4: Evaluate the extraction results
-        is_complete, evaluated_relations = evaluate(
-            query,
-            relations,
-            model,
-            read_txt("data/mock_response_evaluate.txt") if DEV else None,
-        )
-
-        if evaluated_relations is None:
-            raise RuntimeError("Failed to evaluate extraction results.")
-
-    # * Step 5: Decide next action based on evaluation results
-    next_action: Action | None = None
-
-    if is_complete is False:
-        next_action = act(
-            actions,
-            query,
-            webpage_data.url,
-            webpage_data.title,
-            model,
-            read_txt("data/mock_response_act.txt") if DEV else None,
-        )
-
-        if next_action is None:
-            raise RuntimeError("Failed to predict next action.")
-
-    # * Step 6: Return the extracted relations and next action to browser
-    result = EvaluationEvent(
-        data=ExtractionEvent(scrape_event, query, relations),
-        results=evaluated_relations,
-        next_action=next_action,
-    )
+    # Step 6: Respond
+    # Return the extracted relations and next action to browser
+    return evaluation.getresponse()
 
     # FUTURE: add cloud storage for ExtractionEvent data
-
-    return Response(evaluated_relations, next_action)
 
 
 models = read_catalog()
@@ -142,7 +101,10 @@ async def get_models() -> list[str]:
     """
 
     if models is None:
-        raise RuntimeError("Failed to read model catalog.")
+        raise exceptions.HTTPException(
+            status_code=500,
+            detail=f"Failed to load model catalog. {error.CHECK_SERVER}",
+        )
 
     return list(models.keys())
 
@@ -159,12 +121,18 @@ async def get_model_detail(model_id: str) -> ModelDetail:
     """
 
     if models is None:
-        raise RuntimeError("Failed to read model catalog.")
+        raise exceptions.HTTPException(
+            status_code=500,
+            detail=f"Server couldn't load the model catalog. {error.CHECK_SERVER}",
+        )
 
     try:
         return models[model_id]
     except KeyError:
-        raise RuntimeError(f"Model `{model_id}` not found.")
+        raise exceptions.HTTPException(
+            status_code=404,
+            detail=f"Couldn't find model `{model_id}` in the catalog.",
+        )
 
 
 # Default litestar instance
@@ -192,7 +160,10 @@ async def extract_relation(data: str) -> list[Relation]:
     """
 
     if data is None or data == "":
-        return []
+        raise exceptions.HTTPException(
+            status_code=400,
+            detail=f"Couldn't read request body. {error.CHECK_INPUT}",
+        )
 
     from models.mrebel import extract
 

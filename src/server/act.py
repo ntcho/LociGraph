@@ -12,7 +12,7 @@ from dtos import Action, ActionElement, RelationQuery
 from utils.prompt import generate_act_prompt, parse_act_response
 from utils.catalog import DEFAULT_MODEL
 from utils.file import write_json
-from utils.dev import get_timestamp
+from utils.dev import get_timestamp, read_mock_response
 
 
 def act(
@@ -21,7 +21,7 @@ def act(
     url: str,
     title: str | None,
     model_id: str = DEFAULT_MODEL,
-    mock_response: str | None = None,
+    mock_response: str | None = read_mock_response("data/mock_response_act.txt"),
 ) -> Action | None:
     """Predict the next action to take based on the given actions and query.
 
@@ -57,4 +57,5 @@ def act(
     except Exception as e:
         # See more: https://docs.litellm.ai/docs/exception_mapping
         log.error(f"Failed to predict actions. {type(e)}: {e}")
+        log.exception(e)
         return None
