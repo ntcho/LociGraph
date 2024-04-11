@@ -35,9 +35,7 @@ DEV: bool = ENV != "production" if ENV is not None else True  # true if not prod
 
 
 @post("/process/")
-async def process_pipeline(
-    data: Query, model_id: str = DEFAULT_MODEL
-) -> Response | None:
+async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response | None:
     """Process the given extraction query.
 
     Note:
@@ -80,7 +78,7 @@ async def process_pipeline(
             elements,
             query,
             webpage_data.title,
-            model_id,
+            model,
             read_txt("data/mock_response_extract.txt") if DEV else None,
         )
 
@@ -97,7 +95,7 @@ async def process_pipeline(
         is_complete, evaluated_relations = evaluate(
             query,
             relations,
-            model_id,
+            model,
             read_txt("data/mock_response_evaluate.txt") if DEV else None,
         )
 
@@ -113,7 +111,7 @@ async def process_pipeline(
             query,
             webpage_data.url,
             webpage_data.title,
-            model_id,
+            model,
             read_txt("data/mock_response_act.txt") if DEV else None,
         )
 
