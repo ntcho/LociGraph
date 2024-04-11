@@ -1,4 +1,3 @@
-from typing import Optional
 import utils.logging as _log
 
 _log.configure(format=_log.FORMAT)
@@ -13,8 +12,8 @@ from filter import filter
 from extract import extract
 from evaluate import evaluate
 from act import act
+
 from dtos import (
-    Action,
     ModelDetail,
     Query,
     ExtractionEvent,
