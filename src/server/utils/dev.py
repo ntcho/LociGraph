@@ -2,11 +2,6 @@ from base64 import b64encode
 from datetime import datetime
 
 
-def read_file_to_string(file_path: str) -> str:
-    with open(file_path, "r") as file:
-        return file.read()
-
-
 def read_file_to_base64(file_path: str) -> str:
     with open(file_path, "rb") as file:
         file_content = file.read()
