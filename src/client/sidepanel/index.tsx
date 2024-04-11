@@ -5,6 +5,7 @@ import { sendToBackground } from "@plasmohq/messaging"
 
 import { Alert, AlertDescription, AlertTitle } from "~components/ui/alert"
 import { Button } from "~components/ui/button"
+import { Checkbox } from "~components/ui/checkbox"
 import { Input } from "~components/ui/input"
 import { Label } from "~components/ui/label"
 
@@ -15,6 +16,7 @@ import type { RequestBody, ResponseBody } from "~background/messages/process"
 function IndexSidePanel() {
   const [entity, setEntity] = useState("Domain")
   const [attribute, setAttribute] = useState("used for")
+  const [continuous, setContinuous] = useState(false)
 
   const [response, setResponse] = useState<ResponseBody>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -33,7 +35,7 @@ function IndexSidePanel() {
           entity: entity,
           attribute: attribute === "" ? null : attribute
         },
-        continuous: false // true to enable full autonomous nagivation
+        continuous: continuous // true to enable full autonomous nagivation
       }
     })
 
@@ -77,7 +79,28 @@ function IndexSidePanel() {
         Locate
       </Button>
 
-      {response.error && (
+      <div className="items-top flex space-x-2">
+        <Checkbox
+          id="continuous"
+          checked={continuous}
+          onCheckedChange={(checked) => {
+            setContinuous(Boolean(checked))
+          }}
+        />
+        <div className="grid gap-1.5 leading-none">
+          <label
+            htmlFor="continuous"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Enable autonomous mode ⚡
+          </label>
+          <p className="text-xs text-muted-foreground leading-snug">
+            Allow LociGraph to autonomously navigate the web to find the
+            information you need.
+          </p>
+        </div>
+      </div>
+
+      {response && response.error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
