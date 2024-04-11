@@ -237,7 +237,6 @@ def filter_action_elements(
         ):
             # search input is always relevant
             action.relevance = {"content": Relevancy.HIGHEST}
-            result.append(action)
             continue
 
         # check whether action contains any of the keywords
@@ -248,8 +247,15 @@ def filter_action_elements(
                     "location": calculate_location_relevance(action.xpath),
                     # FUTURE: add relevancy based on distance with filtered elements
                 }
-                result.append(action)
                 break
+
+        if action.relevance is None:
+            action.relevance = {
+                "content": Relevancy.LOW,
+                "location": calculate_location_relevance(action.xpath),
+            }
+
+        result.append(action)
 
     result = sorted(result)  # higher relevance comes first
 
