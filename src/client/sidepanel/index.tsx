@@ -172,7 +172,7 @@ function IndexSidePanel() {
                                   id === model ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              <div className="w-full line-clamp-1">{id}</div>
+                              <div className="w-full break-all">{id}</div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
