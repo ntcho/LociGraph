@@ -38,16 +38,6 @@ tag_relevance_level = {
     "main": Relevancy.HIGH,
 }
 
-# Download and cache the Open English Wordnet (OEWN) 2023
-wn.download("oewn:2023")
-
-# Wordnet object with added lemmatizer
-# See more: https://wn.readthedocs.io/en/latest/guides/lemmatization.html#querying-with-lemmatization
-en = wn.Wordnet("oewn:2023", lemmatizer=Morphy())
-
-index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
-stopwords = read_json("utils/stopwords.json")
-
 
 def filter(data: ParsedWebpageData, query: RelationQuery) -> list[Element]:
     """Filter and return relevant elements based on the given keywords.
@@ -212,6 +202,32 @@ def get_relevance_from_xpath(xpath: str) -> Relevancy:
     return Relevancy.MEDIUM
 
 
+en: wn.Wordnet | None = None
+index: dict[str, list[str]] | None = None
+stopwords: list[str] | None = None
+
+
+def init_expansion():
+    """Initialize Wordnet, Wikidata, stopword variables for `expand_keywords()`."""
+
+    if en is None:
+        # Download and cache the Open English Wordnet (OEWN) 2023
+        wn.download("oewn:2023")
+
+        # Wordnet object with added lemmatizer
+        # See more: https://wn.readthedocs.io/en/latest/guides/lemmatization.html#querying-with-lemmatization
+        global en
+        en = wn.Wordnet("oewn:2023", lemmatizer=Morphy())
+
+    if index is None:
+        global index
+        index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
+
+    if stopwords is None:
+        global stopwords
+        stopwords = read_json("utils/stopwords.json")
+
+
 def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     """Find synonyms, related words, and aliases of the given keywords from
     WikiData and Wordnet.
@@ -230,6 +246,11 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     Returns:
         list[tuple[str, Relevancy]]: The expanded keywords with relevancy levels.
     """
+
+    init_expansion()  # initialize Wordnet, Wikidata, stopword variables
+
+    if en is None or index is None or stopwords is None:
+        raise RuntimeError("Failed to initialize expansion variables.")
 
     all_keywords = []
     results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
