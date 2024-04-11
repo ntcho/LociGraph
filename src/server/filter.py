@@ -286,21 +286,21 @@ stopwords: list[str] | None = None
 def init_expansion():
     """Initialize Wordnet, Wikidata, stopword variables for `expand_keywords()`."""
 
+    global en
     if en is None:
         # Download and cache the Open English Wordnet (OEWN) 2023
         wn.download("oewn:2023")
 
         # Wordnet object with added lemmatizer
         # See more: https://wn.readthedocs.io/en/latest/guides/lemmatization.html#querying-with-lemmatization
-        global en
         en = wn.Wordnet("oewn:2023", lemmatizer=Morphy())
 
+    global index
     if index is None:
-        global index
         index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
 
+    global stopwords
     if stopwords is None:
-        global stopwords
         stopwords = read_json("utils/stopwords.json")
 
 
