@@ -1,29 +1,44 @@
+import { AlertCircle } from "lucide-react"
 import { useState } from "react"
 
+import { sendToBackground } from "@plasmohq/messaging"
+
+import { Alert, AlertDescription, AlertTitle } from "~components/ui/alert"
 import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
 import { Label } from "~components/ui/label"
 
 import "~style.css"
 
-function IndexSidePanel() {
-  const [target, setTarget] = useState("")
-  const [relation, setRelation] = useState("")
+import type { RequestBody, ResponseBody } from "~background/messages/process"
 
-  const [response, setResponse] = useState(null)
+function IndexSidePanel() {
+  const [entity, setEntity] = useState("Domain")
+  const [attribute, setAttribute] = useState("used for")
+
+  const [response, setResponse] = useState<ResponseBody>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const processPage = async () => {
-    // const response = await fetch("http://localhost:8080/process", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json"
-    //   },
-    //   body: JSON.stringify({ test: "test" })
-    // })
+    // don't start process if entity is not defined
+    if (entity === "") return
 
-    const response = await fetch("https://jsonplaceholder.typicode.com/todos/1")
-    const data = await response.json()
-    setResponse(data)
+    setIsLoading(true)
+
+    // send message to background script
+    const response = await sendToBackground<RequestBody, ResponseBody>({
+      name: "process",
+      body: {
+        query: {
+          entity: entity,
+          attribute: attribute === "" ? null : attribute
+        },
+        continuous: false // true to enable full autonomous nagivation
+      }
+    })
+
+    setResponse(response)
+    setIsLoading(false)
   }
 
   return (
@@ -31,33 +46,48 @@ function IndexSidePanel() {
       <h1 className="text-2xl font-bold">LociGraph</h1>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="target">Target</Label>
+        <Label htmlFor="entity">Entity</Label>
         <Input
           type="text"
-          id="target"
+          id="entity"
           placeholder="John Doe"
-          onChange={(e) => setTarget(e.target.value)}
-          value={target}
+          disabled={isLoading}
+          onChange={(e) => setEntity(e.target.value)}
+          value={entity}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="relation">Relation</Label>
+        <Label htmlFor="attribute">Attribute</Label>
         <Input
           type="text"
-          id="relation"
+          id="attribute"
           placeholder="studied at"
-          onChange={(e) => setRelation(e.target.value)}
-          value={relation}
+          disabled={isLoading}
+          onChange={(e) => setAttribute(e.target.value)}
+          value={attribute}
         />
       </div>
 
       <Button
+        disabled={isLoading}
         onClick={() => {
           processPage()
         }}>
         Locate
       </Button>
+
+      {response.error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {response.error
+              ? response.error
+              : "Unknown error occurred. Please try again later."}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {response && (
         <div>

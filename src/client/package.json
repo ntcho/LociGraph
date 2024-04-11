@@ -17,6 +17,7 @@
     "autoprefixer": "^10.4.19",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "js-base64": "^3.7.7",
     "lucide-react": "^0.359.0",
     "plasmo": "0.85.2",
     "postcss": "^8.4.38",
@@ -37,10 +38,17 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://*/*",
+      "http://*/*"
     ],
     "permissions": [
-      "scripting"
-    ]
+      "scripting",
+      "activeTab"
+    ],
+    "externally_connectable": {
+      "matches": [
+        "<all_urls>"
+      ]
+    }
   }
 }
