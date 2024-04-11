@@ -28,7 +28,7 @@ def read_catalog() -> dict[str, ModelDetail] | None:
     """
 
     try:
-        models = read_json(CATALOG_PATH)
+        models: dict[str, ModelDetail] = read_json(CATALOG_PATH)
         log.info(f"Cached catalog found: {CATALOG_PATH}")
     except FileNotFoundError:
         try:
@@ -36,6 +36,13 @@ def read_catalog() -> dict[str, ModelDetail] | None:
             models = download_catalog()
         except RuntimeError:
             return None
+
+    for id, detail in models.items():
+        try:
+            if detail.mode not in ["chat", "completion"]:
+                models.pop(id)
+        except AttributeError:
+            pass
 
     return models
 
