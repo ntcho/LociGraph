@@ -58,7 +58,7 @@ async def process_pipeline(
     webpage_data = scrape_event.data
 
     # * Step 2: Filter relevant elements
-    relevant_elements = filter(webpage_data, query)
+    elements, actions = filter(webpage_data, query)
 
     # * Step 3: Extract relations from filtered elements
     relations: list[Relation] = []
@@ -66,17 +66,17 @@ async def process_pipeline(
     is_complete: bool = False
 
     # skip extraction if no relevant elements found
-    if len(relevant_elements) > 0:
+    if len(elements) > 0:
 
         # Extract relations using the app_extract litestar instance
         relations_mrebel = extract_mrebel(
-            relevant_elements,
+            elements,
             query,
         )
 
         # Extract relations using the LLM APIs
         relations_llm = extract_llm(
-            relevant_elements,
+            elements,
             query,
             webpage_data.title,
             model_id,
@@ -108,7 +108,7 @@ async def process_pipeline(
 
     if is_complete is False:
         next_action = act(
-            webpage_data.actions,
+            actions,
             query,
             webpage_data.url,
             webpage_data.title,

@@ -22,7 +22,9 @@ class Element:
     xpath: str
     html_element: HtmlElement
     content: str
-    details: dict | None = None
+    details: dict[Literal["placeholder", "aria-label", "label", "href"], str] | None = (
+        None
+    )
     relevance: dict[str, float] | None = None
 
     def getdetails(self) -> str:

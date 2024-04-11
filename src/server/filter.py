@@ -6,15 +6,16 @@ log.setLevel(_log.LEVEL)
 
 
 import re
-from pprint import pformat
 from enum import Enum
+from pprint import pformat
 
 import wn
 from wn.morphy import Morphy
 from lxml.html import HtmlElement, tostring
 from lxml.etree import _ElementTree
 
-from dtos import Element, ParsedWebpageData, RelationQuery, WebpageData
+from dtos import ActionElement, Element, ParsedWebpageData, RelationQuery
+
 from utils.file import read_json
 
 
@@ -39,7 +40,9 @@ tag_relevance_level = {
 }
 
 
-def filter(data: ParsedWebpageData, query: RelationQuery) -> list[Element]:
+def filter(
+    data: ParsedWebpageData, query: RelationQuery
+) -> tuple[list[Element], list[ActionElement]]:
     """Filter and return relevant elements based on the given keywords.
 
     Args:
@@ -47,19 +50,56 @@ def filter(data: ParsedWebpageData, query: RelationQuery) -> list[Element]:
         query (RelationQuery): The relation query to filter elements.
 
     Returns:
-        list[HtmlElement]: Relevant HTML elements filtered with the query.
+        tuple[list[Element], list[ActionElement]]: The filtered elements and action elements.
     """
 
-    # prepare XPath query to filter elements
-    xpath_queries = get_xpath_queries(query)
+    keywords: list[tuple[str, Relevancy]] = get_top_keywords(query)
 
-    # filter elements with the XPath query
-    filtered_elements = get_elements(data, xpath_queries)
+    elements = filter_elements(data, keywords)
+    action_elements = filter_action_elements(data, keywords)
 
-    return filtered_elements
+    return elements, action_elements
 
 
-def get_xpath_queries(query: RelationQuery) -> list[tuple[str, Relevancy]]:
+def get_top_keywords(query: RelationQuery, k: int = 25) -> list[tuple[str, Relevancy]]:
+    """Get the top K keywords from the given list of keywords.
+
+    Args:
+        keywords (list[str]): The list of keywords to get the top K keywords from.
+        k (int): The number of top keywords to get.
+
+    Returns:
+        list[tuple[str, Relevancy]]: The top K keywords with relevance levels, sorted
+        by relevance.
+    """
+
+    if k <= 0:
+        raise ValueError("Invalid value for `k`.")
+
+    results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
+
+    # add name of entity to keywords
+    results.append((query.entity, Relevancy.HIGH))
+
+    # add all keywords + extended keywords from the attribute
+    if query.attribute is not None:
+        results.extend(expand_keywords([query.attribute]))
+
+    # filter top K keywords by relevance level
+    results = sorted(results, key=lambda item: item[1], reverse=True)
+
+    # number of keywords with relevance level of Relevancy.HIGHEST
+    k = sum(1 for _, r in results if r == Relevancy.HIGHEST)
+
+    # get max(k, 25) keywords
+    top_keywords = results[: max(k, 25)]
+
+    return top_keywords
+
+
+def get_xpath_queries(
+    keywords: list[tuple[str, Relevancy]]
+) -> list[tuple[str, Relevancy]]:
     """Get the XPath query for the given relation query.
 
     Args:
@@ -69,45 +109,27 @@ def get_xpath_queries(query: RelationQuery) -> list[tuple[str, Relevancy]]:
         str: The XPath query that filters top K elements related to the given query.
     """
 
-    xpath_keywords: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
+    log.info(f"Filtering elements with {len(keywords)} keywords...")
+    log.debug(f"XPath filter keywords: \n{pformat(keywords)}")
 
-    # add name of entity to keywords
-    xpath_keywords.append((query.entity, Relevancy.HIGH))
-
-    # add all keywords + extended keywords from the attribute
-    if query.attribute is not None:
-        xpath_keywords.extend(expand_keywords([query.attribute]))
-
-    # filter top K keywords by relevance level
-    xpath_keywords = sorted(xpath_keywords, key=lambda item: item[1], reverse=True)
-
-    # number of keywords with relevance level of Relevancy.HIGHEST
-    k = sum(1 for _, r in xpath_keywords if r == Relevancy.HIGHEST)
-
-    # get max(k, 25) keywords
-    top_keywords = xpath_keywords[: max(k, 25)]
-
-    log.info(f"Filtering elements with {len(top_keywords)} keywords...")
-    log.debug(f"XPath filter keywords: \n{pformat(top_keywords)}")
-
-    top_keywords_by_relevance: list[tuple[list[str], Relevancy]] = [
-        ([k for k, r in top_keywords if r == Relevancy.HIGHEST], Relevancy.HIGHEST),
-        ([k for k, r in top_keywords if r == Relevancy.HIGH], Relevancy.HIGH),
-        ([k for k, r in top_keywords if r == Relevancy.MEDIUM], Relevancy.MEDIUM),
-        ([k for k, r in top_keywords if r == Relevancy.LOW], Relevancy.LOW),
+    keywords_by_relevance: list[tuple[list[str], Relevancy]] = [
+        ([k for k, r in keywords if r == Relevancy.HIGHEST], Relevancy.HIGHEST),
+        ([k for k, r in keywords if r == Relevancy.HIGH], Relevancy.HIGH),
+        ([k for k, r in keywords if r == Relevancy.MEDIUM], Relevancy.MEDIUM),
+        ([k for k, r in keywords if r == Relevancy.LOW], Relevancy.LOW),
     ]  # [([keyword, ...], relevance), ...]
 
     results: list[tuple[str, Relevancy]] = []  # [(query, relevance), ...]
 
-    for keywords, relevance in top_keywords_by_relevance:
-        xpath_query = get_xpath_query_from_keywords(keywords)
+    for keyword_group, relevance in keywords_by_relevance:
+        xpath_query = get_keyword_xpath_query(keyword_group)
         if xpath_query is not None:
             results.append((xpath_query, relevance))
 
     return results
 
 
-def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
+def get_keyword_xpath_query(keywords: list[str]) -> str | None:
     """Get the XPath query for the given keywords.
 
     Args:
@@ -128,8 +150,8 @@ def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
     return xpath_query
 
 
-def get_elements(
-    data: ParsedWebpageData, xpath_queries: list[tuple[str, Relevancy]]
+def filter_elements(
+    data: ParsedWebpageData, keywords: list[tuple[str, Relevancy]]
 ) -> list[Element]:
     """Get all visible elements from the parsed webpage data, sorted by relevance.
 
@@ -141,6 +163,9 @@ def get_elements(
         list[Element]: The filtered elements from the webpage data.
     """
 
+    # prepare XPath query to filter elements
+    xpath_queries = get_xpath_queries(keywords)
+
     if data is None or data.contentHTML is None or data.contentTree is None:
         raise ValueError("Invalid webpage data.")
 
@@ -149,7 +174,7 @@ def get_elements(
 
     results: list[Element] = []
 
-    for xpath_query, relevancy in xpath_queries:
+    for xpath_query, content_relevancy in xpath_queries:
         log.info(f"Filtering elements with XPath query [{len(xpath_query)}]")
         # log.debug(f"Filtering elements with XPath query [{relevancy}, {xpath_query}]")
 
@@ -166,9 +191,9 @@ def get_elements(
                         r" +", " ", re.sub(r"\n\s*", "\n", element.text_content())
                     ).strip(),  # remove extra spaces and newlines
                     relevance={
-                        "content": float(relevancy),
+                        "content": float(content_relevancy),
                         "location": float(
-                            get_relevance_from_xpath(tree.getpath(element))
+                            calculate_location_relevance(tree.getpath(element))
                         ),
                     },
                 ),
@@ -184,7 +209,52 @@ def get_elements(
     return sorted(results)  # higher relevance comes first
 
 
-def get_relevance_from_xpath(xpath: str) -> Relevancy:
+def filter_action_elements(
+    data: ParsedWebpageData, keywords: list[tuple[str, Relevancy]]
+) -> list[ActionElement]:
+    """Filter relevant action elements, sorted by relevance.
+
+    Args:
+        data (ParsedWebpageData): The parsed webpage data.
+        xpath_query (str): The XPath query to filter elements.
+
+    Returns:
+        list[Element]: The filtered action elements, sorted by relevance.
+    """
+
+    if data is None or data.actions is None:
+        raise ValueError("Invalid webpage data.")
+
+    result: list[ActionElement] = []
+
+    for action in data.actions:
+        # check whether action is a search input
+        if action.details is not None and (
+            "search"
+            in (
+                action.details.get("placeholder", "") + action.details.get("label", "")
+            ).lower()
+        ):
+            # search input is always relevant
+            action.relevance = {"content": Relevancy.HIGHEST}
+            result.append(action)
+            continue
+
+        # check whether action contains any of the keywords
+        for keyword, content_relevance in keywords:
+            if keyword in action.content.lower():
+                action.relevance = {
+                    "content": content_relevance,
+                    "location": calculate_location_relevance(action.xpath),
+                    # FUTURE: add relevancy based on distance with filtered elements
+                }
+                result.append(action)
+                break
+
+    return sorted(result)  # higher relevance comes first
+
+
+def calculate_location_relevance(xpath: str) -> Relevancy:
     """Get the relevance level of the element with the given XPath.
 
     Args:
