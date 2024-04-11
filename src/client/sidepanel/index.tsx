@@ -3,6 +3,8 @@ import { useState } from "react"
 
 import { sendToBackground } from "@plasmohq/messaging"
 
+import { ThemeProvider } from "~components/theme-provider"
+import { ThemeToggle } from "~components/theme-toggle"
 import { Alert, AlertDescription, AlertTitle } from "~components/ui/alert"
 import { Button } from "~components/ui/button"
 import { Checkbox } from "~components/ui/checkbox"
@@ -44,8 +46,16 @@ function IndexSidePanel() {
   }
 
   return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange>
     <div className="flex flex-col items-stretch p-8 gap-4">
+        <div className="flex justify-between items-center">
       <h1 className="text-2xl font-bold">LociGraph</h1>
+          <ThemeToggle />
+        </div>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="entity">Entity</Label>
