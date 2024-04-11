@@ -12,14 +12,22 @@ from filter import filter
 from extract import extract_llm, extract_mrebel
 from evaluate import evaluate
 from act import act
-from dtos import Action, Query, ExtractionEvent, Relation, EvaluationEvent, ScrapeEvent
+from dtos import (
+    Action,
+    Query,
+    ExtractionEvent,
+    Relation,
+    EvaluationEvent,
+    Response,
+    ScrapeEvent,
+)
 
 
 load_dotenv()  # Load environment variables from `.env` file
 
 
 @post("/process/")
-async def processHandler(data: Query) -> EvaluationEvent | None:
+async def processHandler(data: Query) -> Response | None:
     """Process the given extraction query.
 
     Note:
@@ -81,14 +89,16 @@ async def processHandler(data: Query) -> EvaluationEvent | None:
         if next_action is None:
             raise RuntimeError("Failed to predict next action.")
 
-    # FUTURE: add cloud storage for ExtractionEvent data
-
     # * Step 6: Return the extracted relations and next action to browser
-    return EvaluationEvent(
+    result = EvaluationEvent(
         data=ExtractionEvent(scrape_event, query, relations),
         results=evaluated_relations,
         next_action=next_action,
     )
+
+    # FUTURE: add cloud storage for ExtractionEvent data
+
+    return Response(evaluated_relations, next_action)
 
 
 # Default litestar instance

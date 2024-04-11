@@ -67,6 +67,11 @@ class Element:
         # e.g. /html/body/div[1] is better than /html/body/div[2]
         return self.xpath < other.xpath
 
+    def removehtmlelement(self):
+        """Remove the `HtmlElement` object for serialization."""
+
+        del self.html_element
+
 
 @dataclass
 class ActionElement(Element):
@@ -112,6 +117,11 @@ class Action:
     element: ActionElement
     type: Literal["CLICK", "TYPE", "TYPESUBMIT"]
     value: str | None  # for TYPE and TYPESUBMIT
+
+    def removehtmlelement(self):
+        """Remove the `HtmlElement` object from element for serialization."""
+
+        self.element.removehtmlelement()
 
 
 @dataclass
@@ -259,9 +269,9 @@ class EvaluationEvent(Event):
         next_action (ActionElement | None): The next action to take based on the
     """
 
-    data: ExtractionEvent
     results: list[Relation]
     next_action: Action | None  # None if extraction is complete
+    data: Optional[ExtractionEvent] = None
     confidence_level: Optional[str] = None  # FUTURE: use top-K prompting strategy
 
 
@@ -276,3 +286,31 @@ class Query:
 
     data: WebpageData
     query: RelationQuery
+
+
+@dataclass
+class Response:
+    """Type definition for the extraction response.
+
+    Attributes:
+        results (list[Relation]): The extracted relations.
+        next_action (Action | None): The next action to take based on the extraction results.
+        confidence_level (str | None): The confidence level of the extraction results.
+    """
+
+    results: list[Relation]
+    next_action: Action | None
+    confidence_level: Optional[str] = None
+
+    def __init__(
+        self,
+        results: list[Relation],
+        next_action: Action | None,
+        confidence_level: Optional[str] = None,
+    ):
+        if next_action is not None:
+            next_action.removehtmlelement()
+
+        self.results = results
+        self.next_action = next_action
+        self.confidence_level = confidence_level
