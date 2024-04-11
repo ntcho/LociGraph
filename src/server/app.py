@@ -4,7 +4,7 @@ _log.configure(format=_log.FORMAT)
 log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
-from litestar import Litestar, post
+from litestar import Litestar, post, get
 from dotenv import load_dotenv
 
 from parse import parse
@@ -14,6 +14,7 @@ from evaluate import evaluate
 from act import act
 from dtos import (
     Action,
+    ModelDetail,
     Query,
     ExtractionEvent,
     Relation,
@@ -21,6 +22,8 @@ from dtos import (
     Response,
     ScrapeEvent,
 )
+
+from utils.catalog import read_catalog
 
 
 load_dotenv()  # Load environment variables from `.env` file
@@ -101,8 +104,42 @@ async def processHandler(data: Query) -> Response | None:
     return Response(evaluated_relations, next_action)
 
 
+models = read_catalog()
+
+
+@get("/models/")
+async def modelsHandler() -> list[str]:
+    """Return a list of all available models.
+
+    Returns:
+        list[str]: List of available models.
+    """
+
+    return list(models.keys())
+
+
+@get("/model/")
+async def modelHandler(id: str) -> ModelDetail:
+    """Return the details of the given model.
+
+    Args:
+        model_id (str): The ID of the model to get details for.
+
+    Returns:
+        ModelDetail: The details of the model.
+    """
+
+    try:
+        return models[id]
+    except KeyError:
+        raise RuntimeError(f"Model `{id}` not found.")
+
+
 # Default litestar instance
-app = Litestar(route_handlers=[processHandler], logging_config=_log.CONFIG)
+app = Litestar(
+    route_handlers=[processHandler, modelsHandler, modelHandler],
+    logging_config=_log.CONFIG,
+)
 
 
 @post("/extract/")

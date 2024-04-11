@@ -314,3 +314,29 @@ class Response:
         self.results = results
         self.next_action = next_action
         self.confidence_level = confidence_level
+
+
+@dataclass
+class ModelDetail:
+    """Class that represents the details of a model supported via LiteLLM."""
+
+    litellm_provider: str
+    mode: Optional[str]
+    source: Optional[str]
+    max_tokens: Optional[float]
+    max_input_tokens: Optional[float]
+    max_output_tokens: Optional[float]
+    input_cost_per_token: Optional[float]
+    output_cost_per_token: Optional[float]
+    input_cost_per_pixel: Optional[float]
+    output_cost_per_pixel: Optional[float]
+    input_cost_per_second: Optional[float]
+    output_cost_per_second: Optional[float]
+    max_images_per_prompt: Optional[float]
+    max_videos_per_prompt: Optional[float]
+    max_video_length: Optional[float]
+    output_vector_size: Optional[float]
+    output_cost_per_image: Optional[float]
+    input_cost_per_request: Optional[float]
+    supports_function_calling: Optional[bool]
+    supports_parallel_function_calling: Optional[bool]
