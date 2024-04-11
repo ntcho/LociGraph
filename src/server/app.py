@@ -30,7 +30,7 @@ load_dotenv()  # Load environment variables from `.env` file
 
 
 @post("/process/")
-async def processHandler(data: Query) -> Response | None:
+async def process_pipeline(data: Query) -> Response | None:
     """Process the given extraction query.
 
     Note:
@@ -108,7 +108,7 @@ models = read_catalog()
 
 
 @get("/models/")
-async def modelsHandler() -> list[str]:
+async def get_models() -> list[str]:
     """Return a list of all available models.
 
     Returns:
@@ -119,7 +119,7 @@ async def modelsHandler() -> list[str]:
 
 
 @get("/model/")
-async def modelHandler(id: str) -> ModelDetail:
+async def get_model_detail(id: str) -> ModelDetail:
     """Return the details of the given model.
 
     Args:
@@ -137,13 +137,13 @@ async def modelHandler(id: str) -> ModelDetail:
 
 # Default litestar instance
 app = Litestar(
-    route_handlers=[processHandler, modelsHandler, modelHandler],
+    route_handlers=[process_pipeline, get_models, get_model_detail],
     logging_config=_log.CONFIG,
 )
 
 
 @post("/extract/")
-async def extractHandler(data: str) -> list[Relation]:
+async def extract_relation(data: str) -> list[Relation]:
     """Extract relation triplets from the given paragraph.
 
     Note:
@@ -168,4 +168,4 @@ async def extractHandler(data: str) -> list[Relation]:
 
 
 # Separate litestar instance for mREBEL model
-app_extract = Litestar(route_handlers=[extractHandler], logging_config=_log.CONFIG)
+app_extract = Litestar(route_handlers=[extract_relation], logging_config=_log.CONFIG)
