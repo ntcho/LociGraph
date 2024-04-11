@@ -6,14 +6,15 @@ log.setLevel(_log.LEVEL)
 
 
 import requests
-from pprint import pformat
 
 from litellm import completion
 
 from dtos import Element, Relation, RelationQuery
+
 from utils.prompt import generate_extract_prompt, parse_extract_response
+from utils.catalog import DEFAULT_MODEL
+from utils.file import write_json
 from utils.dev import get_timestamp
-from utils.json import write_json
 
 
 def extract_mrebel(
@@ -53,7 +54,11 @@ def extract_mrebel(
 
 
 def extract_llm(
-    elements: list[Element], query: RelationQuery, title: str | None
+    elements: list[Element],
+    query: RelationQuery,
+    title: str | None,
+    model_id: str = DEFAULT_MODEL,
+    mock_response: str | None = None,
 ) -> list[Relation] | None:
     """Extract relation triplets with LLMs.
 
@@ -69,20 +74,21 @@ def extract_llm(
 
     try:
         response = completion(
-            model="gemini/gemini-1.5-pro",
             messages=generate_extract_prompt(title, elements, query),
-            mock_response="(Alex, studied at, Bard College)\n(Alex, majored, Computer Science)",
+            model=model_id,
+            mock_response=mock_response,
         )
 
-        # TODO: add observability callbacks
+        # FUTURE: add observability callbacks
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
-        log.debug(pformat(response))
-
         # Save the response to a file
-        write_json(f"response_{get_timestamp()}.json", response)
+        write_json(f"response_extract_{get_timestamp()}.json", response.json())  # type: ignore
 
-        results = parse_extract_response(response["choices"][0]["message"]["content"])  # type: ignore
+        response_content = response["choices"][0]["message"]["content"]  # type: ignore
+
+        log.debug(response_content)
+        results = parse_extract_response(response_content)  # type: ignore
 
         return results
 

@@ -15,7 +15,7 @@ from lxml.html import HtmlElement, tostring
 from lxml.etree import _ElementTree
 
 from dtos import Element, ParsedWebpageData, RelationQuery, WebpageData
-from utils.json import read_json
+from utils.file import read_json
 
 
 class Relevancy(float, Enum):

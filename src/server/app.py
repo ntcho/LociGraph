@@ -5,6 +5,7 @@ log = _log.getLogger(__name__)
 log.setLevel(_log.LEVEL)
 
 from litestar import Litestar, post, get
+from os import getenv
 from dotenv import load_dotenv
 
 from parse import parse
@@ -23,14 +24,19 @@ from dtos import (
     ScrapeEvent,
 )
 
-from utils.catalog import read_catalog
+from utils.catalog import read_catalog, DEFAULT_MODEL
+from utils.file import read_txt
 
 
 load_dotenv()  # Load environment variables from `.env` file
+ENV: str | None = getenv("ENV")
+DEV: bool = ENV == "development" if ENV is not None else True
 
 
 @post("/process/")
-async def process_pipeline(data: Query) -> Response | None:
+async def process_pipeline(
+    data: Query, model_id: str = DEFAULT_MODEL
+) -> Response | None:
     """Process the given extraction query.
 
     Note:
@@ -61,10 +67,21 @@ async def process_pipeline(data: Query) -> Response | None:
 
     # skip extraction if no relevant elements found
     if len(relevant_elements) > 0:
+
         # Extract relations using the app_extract litestar instance
-        relations_mrebel = extract_mrebel(relevant_elements, query)
+        relations_mrebel = extract_mrebel(
+            relevant_elements,
+            query,
+        )
+
         # Extract relations using the LLM APIs
-        relations_llm = extract_llm(relevant_elements, query, webpage_data.title)
+        relations_llm = extract_llm(
+            relevant_elements,
+            query,
+            webpage_data.title,
+            model_id,
+            read_txt("data/mock_response_extract.txt") if DEV else None,
+        )
 
         # FUTURE: use asyncio to run both extraction methods concurrently
         # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
@@ -76,7 +93,12 @@ async def process_pipeline(data: Query) -> Response | None:
         relations.extend(relations_llm if relations_llm is not None else [])
 
         # * Step 4: Evaluate the extraction results
-        is_complete, evaluated_relations = evaluate(query, relations)
+        is_complete, evaluated_relations = evaluate(
+            query,
+            relations,
+            model_id,
+            read_txt("data/mock_response_evaluate.txt") if DEV else None,
+        )
 
         if evaluated_relations is None:
             raise RuntimeError("Failed to evaluate extraction results.")
@@ -86,7 +108,12 @@ async def process_pipeline(data: Query) -> Response | None:
 
     if is_complete is False:
         next_action = act(
-            webpage_data.actions, query, webpage_data.url, webpage_data.title
+            webpage_data.actions,
+            query,
+            webpage_data.url,
+            webpage_data.title,
+            model_id,
+            read_txt("data/mock_response_act.txt") if DEV else None,
         )
 
         if next_action is None:
@@ -122,7 +149,7 @@ async def get_models() -> list[str]:
 
 
 @get("/model/")
-async def get_model_detail(id: str) -> ModelDetail:
+async def get_model_detail(model_id: str) -> ModelDetail:
     """Return the details of the given model.
 
     Args:
@@ -136,9 +163,9 @@ async def get_model_detail(id: str) -> ModelDetail:
         raise RuntimeError("Failed to read model catalog.")
 
     try:
-        return models[id]
+        return models[model_id]
     except KeyError:
-        raise RuntimeError(f"Model `{id}` not found.")
+        raise RuntimeError(f"Model `{model_id}` not found.")
 
 
 # Default litestar instance

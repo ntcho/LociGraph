@@ -8,8 +8,10 @@ import requests
 
 from dtos import ModelDetail
 
-from utils.json import read_json, write_json
+from utils.file import read_json, write_json
 
+
+DEFAULT_MODEL = "gemini/gemini-pro"
 
 CATALOG_PATH = "utils/model-catalog.json"
 CATALOG_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
