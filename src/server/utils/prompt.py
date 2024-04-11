@@ -355,7 +355,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
 
     action_element = list(filter(lambda e: e.id == int(id), actions))
 
-    if len(action_element) != 0:
+    if len(action_element) == 0:
         raise RuntimeError(f"Action element with id {id} not found.")
 
     if len(action_element) > 1:
