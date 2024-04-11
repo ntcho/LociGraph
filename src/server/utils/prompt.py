@@ -135,8 +135,10 @@ def generate_extract_prompt(
     prompt = prompt.replace("<query>", str(query))
 
     return [
-        {"role": "system", "content": extract_system_prompt.strip()},
-        {"role": "user", "content": prompt.strip()},
+        {
+            "role": "user",
+            "content": "\n\n".join([extract_system_prompt.strip(), prompt.strip()]),
+        }
     ]
 
 
@@ -228,8 +230,10 @@ def generate_evaluate_prompt(
     prompt = prompt.replace("<relations>", relations)
 
     return [
-        {"role": "system", "content": evaluate_prompt_template.strip()},
-        {"role": "user", "content": prompt.strip()},
+        {
+            "role": "user",
+            "content": "\n\n".join([evaluate_prompt_template.strip(), prompt.strip()]),
+        }
     ]
 
 
@@ -359,8 +363,10 @@ def generate_act_prompt(
     prompt = prompt.replace("<objective>", query.getobjective())
 
     return [
-        {"role": "system", "content": act_prompt_template.strip()},
-        {"role": "user", "content": prompt.strip()},
+        {
+            "role": "user",
+            "content": "\n\n".join([act_prompt_template.strip(), prompt.strip()]),
+        }
     ]
 
 

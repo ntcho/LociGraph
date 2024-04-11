@@ -79,7 +79,7 @@ def get_top_keywords(query: RelationQuery, k: int = 25) -> list[tuple[str, Relev
     results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
 
     # add name of entity to keywords
-    results.append((query.entity, Relevancy.HIGH))
+    results.append((query.entity, Relevancy.HIGHEST))
 
     # add all keywords + extended keywords from the attribute
     if query.attribute is not None:
