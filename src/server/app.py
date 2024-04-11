@@ -29,8 +29,9 @@ from utils.file import read_txt
 
 
 load_dotenv()  # Load environment variables from `.env` file
+
 ENV: str | None = getenv("ENV")
-DEV: bool = ENV == "development" if ENV is not None else True
+DEV: bool = ENV != "production" if ENV is not None else True  # true if not production
 
 
 @post("/process/")
