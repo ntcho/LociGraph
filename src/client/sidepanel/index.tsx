@@ -1,27 +1,68 @@
-import { AlertCircle, AlertTriangle, LoaderCircle } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { sendToBackground } from "@plasmohq/messaging"
 
 import { ThemeProvider } from "~components/theme-provider"
 import { ThemeToggle } from "~components/theme-toggle"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "~components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "~components/ui/alert"
 import { Button } from "~components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "~components/ui/command"
 import { Input } from "~components/ui/input"
 import { Label } from "~components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "~components/ui/popover"
 import { Switch } from "~components/ui/switch"
 
 import "~style.css"
 
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  ChevronsUpDown,
+  LoaderCircle
+} from "lucide-react"
+
 import type { RequestBody, ResponseBody } from "~background/messages/process"
+import { cn } from "~lib/utils"
 
 function IndexSidePanel() {
   const [entity, setEntity] = useState("Domain")
   const [attribute, setAttribute] = useState("used for")
   const [continuous, setContinuous] = useState(false)
+  const [model, setModel] = useState("gemini/gemini-pro")
+
+  const [open, setOpen] = useState(false)
+  const [models, setModels] = useState<string[]>([model])
 
   const [response, setResponse] = useState<ResponseBody>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    ;(async () => {
+      // fetch models from the server
+      try {
+        const response = await fetch("http://localhost:8000/models")
+        const data = await response.json()
+        setModels(data)
+      } catch (error) {
+        console.error("Failed to fetch models", error)
+        setModels([model])
+      }
+    })()
+  }, [])
 
   const processPage = async () => {
     // don't start process if entity is not defined
@@ -81,17 +122,68 @@ function IndexSidePanel() {
           />
         </div>
 
-        <div className="items-center flex gap-4">
-          <Switch
-            id="continuous-mode"
-            disabled={isLoading}
-            checked={continuous}
-            onCheckedChange={(checked) => {
-              setContinuous(Boolean(checked))
-            }}
-          />
-          <Label htmlFor="continuous-mode">Autonomous mode ⚡</Label>
-        </div>
+        <Accordion type="single" collapsible className="w-full -mt-3">
+          <AccordionItem value="advanced-settings">
+            <AccordionTrigger>Advanced settings</AccordionTrigger>
+            <AccordionContent className="flex flex-col gap-4">
+              <div className="items-center flex gap-4">
+                <Switch
+                  id="continuous-mode"
+                  disabled={isLoading}
+                  checked={continuous}
+                  onCheckedChange={(checked) => {
+                    setContinuous(Boolean(checked))
+                  }}
+                />
+                <Label htmlFor="continuous-mode">Autonomous mode ⚡</Label>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="model">Inference model</Label>
+                <Popover open={open} onOpenChange={setOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="w-full justify-between">
+                      {model}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[calc(100vw-4rem)] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search models..." />
+                      <CommandList>
+                        <CommandEmpty>No models found.</CommandEmpty>
+                        <CommandGroup>
+                          {models.map((id) => (
+                            <CommandItem
+                              className="w-full"
+                              key={id}
+                              value={id}
+                              onSelect={(currentValue) => {
+                                if (currentValue !== model)
+                                  setModel(currentValue)
+                                setOpen(false)
+                              }}>
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  id === model ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="w-full line-clamp-1">{id}</div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         <Button
           variant={isLoading ? "outline" : continuous ? "warning" : "default"}
