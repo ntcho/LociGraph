@@ -1,12 +1,12 @@
-from utils.json import read_json, write_json
+from utils.file import read_json, write_json
 
 
 def filter_props(
-    data: any,
+    data: list[dict],
     filter_property: str,
     filter_value: str,
     inverse: bool = False,
-) -> list[any]:
+) -> list[dict]:
     """Filter a JSON array of WikiData properties.
 
     Note:
@@ -73,7 +73,7 @@ def filter_props(
 
 
 def create_props_index(
-    data: any,
+    data: list[dict],
 ) -> dict[str, set[str]]:
     """Create an searchable index for WikiData properties and its aliases.
 
@@ -104,7 +104,7 @@ def create_props_index(
 
 # Read the JSON dump of WikiData properties.
 # Download the JSON dump from: https://hay.toolforge.org/propbrowse/props.json
-data = read_json("props.json")
+data: list[dict] = read_json("props.json")
 
 # Remove all properties with datatype `external-id`.
 # External ID is an unique identifier for an external database (e.g., ISBN, DOI),
