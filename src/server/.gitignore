@@ -36,3 +36,6 @@ venv.bak/
 # Downloaded JSON files
 utils/model-catalog.json
 utils/props.json
+
+# Log outputs
+logs/

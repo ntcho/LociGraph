@@ -41,7 +41,7 @@ def evaluate(
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
         # Save the response to a file
-        write_json(f"response_evaluate_{get_timestamp()}.json", response.json())  # type: ignore
+        write_json(f"logs/response_evaluate_{get_timestamp()}.json", response.json())  # type: ignore
 
         response_content = response["choices"][0]["message"]["content"]  # type: ignore
 
