@@ -111,6 +111,9 @@ def generate_extract_prompt(
         target (RelationQuery): The query of relations to extract.
     """
 
+    if len(elements) == 0:
+        raise RuntimeError("No elements provided.")
+
     avg_relevancy = sum([e.getrelevancy() for e in elements]) / len(elements)
 
     content_elements = [
@@ -328,6 +331,9 @@ def generate_act_prompt(
     Args:
         extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
     """
+
+    if len(actions) == 0:
+        raise RuntimeError("No action elements provided.")
 
     avg_relevancy = sum([e.getrelevancy() for e in actions]) / len(actions)
 
