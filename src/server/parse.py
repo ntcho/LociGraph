@@ -352,13 +352,6 @@ def get_actions_from_element(
         list[ActionElement]: List of ActionElement objects
     """
 
-    id = 0  # unique incremental id for each ActionElement
-
-    def get_id() -> int:
-        nonlocal id
-        id += 1
-        return id
-
     actions: list[ActionElement] = []
 
     # 1st priority: INPUT actions
@@ -383,7 +376,6 @@ def get_actions_from_element(
                 type="INPUT",
                 content=element.get("value", default=None),
                 details=(details if len(details) > 0 else None),
-                id=get_id(),
             )
         )
 
@@ -402,7 +394,6 @@ def get_actions_from_element(
                 type="BUTTON",
                 content=content,
                 details=None,
-                id=get_id(),
             )
         )
 
@@ -428,7 +419,6 @@ def get_actions_from_element(
                 type="LINK",
                 content=content,
                 details=(details if len(details) > 0 else None),
-                id=get_id(),
             )
         )
 

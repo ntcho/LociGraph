@@ -251,7 +251,13 @@ def filter_action_elements(
                 result.append(action)
                 break
 
-    return sorted(result)  # higher relevance comes first
+    result = sorted(result)  # higher relevance comes first
+
+    # add id to actions (1 for most relevant, 2 for second most relevant, etc.)
+    for i, action in enumerate(result):
+        action.id = i + 1
+
+    return result
 
 
 def calculate_location_relevance(xpath: str) -> Relevancy:
