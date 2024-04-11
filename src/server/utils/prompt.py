@@ -10,6 +10,11 @@ import re
 from dtos import Action, ActionElement, Element, Relation, RelationQuery
 
 
+EXTRACT_ELEMENT_LIMIT = 25  # maximum number of elements to extract relations from
+EVALUATE_RELATION_LIMIT = 25  # maximum number of relations to evaluate
+ACT_ELEMENT_LIMIT = 10  # maximum number of actions to choose from
+
+
 # Prompt to extract relation JSON from text
 extract_system_prompt = """
 You are tasked to extract all relation triplets from a webpage. The output must be in the format of [entity, attribute, value]. If no relations are found, write `No relations found`.
@@ -83,7 +88,7 @@ Output:
 No relations found
 """
 
-# TODO-FUTURE: use Auto-CoT
+# FUTURE: use Auto-CoT
 # Read more: https://www.promptingguide.ai/techniques/cot#automatic-chain-of-thought-auto-cot
 
 extract_prompt_template = """
@@ -106,9 +111,17 @@ def generate_extract_prompt(
         target (RelationQuery): The query of relations to extract.
     """
 
-    element_contents: list[str] = [e.content for e in elements]
-    content = "\n\n".join(element_contents)
+    avg_relevancy = sum([e.getrelevancy() for e in elements]) / len(elements)
 
+    content_elements = [
+        e.content for e in elements if e.getrelevancy() >= avg_relevancy
+    ]  # filter elements with above average relevancy
+
+    content = "\n\n".join(
+        content_elements[:EXTRACT_ELEMENT_LIMIT]
+    )  # only prompt the top K relevant elements
+
+    # build the prompt content
     prompt = extract_prompt_template
     prompt = (
         prompt.replace("<title>", title)
@@ -203,7 +216,9 @@ def generate_evaluate_prompt(
         results (list[Relation]): The list of extracted relations to evaluate.
     """
 
-    relations = "\n".join([f"- {str(r)}" for r in results])
+    relations = "\n".join(
+        [f"- {str(r)}" for r in results[:EVALUATE_RELATION_LIMIT]]
+    )  # limit the number of relations to evaluate
 
     prompt = evaluate_prompt_template
     prompt = prompt.replace("<query>", str(query))
@@ -249,6 +264,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
 
 
 # TODO: add more few-shot examples for action prediction
+
 # Prompt to predict next action
 # Inspired by https://github.com/nat/natbot
 act_prompt_template = """
@@ -313,6 +329,16 @@ def generate_act_prompt(
         extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
     """
 
+    avg_relevancy = sum([e.getrelevancy() for e in actions]) / len(actions)
+
+    action_elements = [
+        e for e in actions if e.getrelevancy() >= avg_relevancy
+    ]  # filter action elements with above average relevancy
+
+    action_list = "\n".join(
+        [f"- {str(a)}" for a in action_elements[:ACT_ELEMENT_LIMIT]]
+    )  # only prompt the top K relevant actions
+
     prompt = act_prompt_template
     prompt = prompt.replace("<url>", url)
     prompt = (
@@ -322,7 +348,7 @@ def generate_act_prompt(
     )
     prompt = prompt.replace(
         "<actions>",
-        "\n".join([f"- {str(a)}" for a in actions]),
+        action_list,
     )
     prompt = prompt.replace("<objective>", query.getobjective())
 

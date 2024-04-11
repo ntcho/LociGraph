@@ -36,7 +36,7 @@ class Element:
 
         return ", ".join([f"{k}='{v}'" for k, v in self.details.items()])
 
-    def getrelevance(self) -> float:
+    def getrelevancy(self) -> float:
         """Get the relevance score of the element.
 
         Note:
@@ -52,8 +52,8 @@ class Element:
         if not isinstance(other, Element):
             return False
 
-        self_relevance = self.getrelevance()
-        other_relevance = other.getrelevance()
+        self_relevance = self.getrelevancy()
+        other_relevance = other.getrelevancy()
 
         # higher relevance is better
         if self_relevance != other_relevance:

@@ -141,7 +141,7 @@ def get_xpath_query_from_keywords(keywords: list[str]) -> str | None:
 def get_elements(
     data: ParsedWebpageData, xpath_queries: list[tuple[str, Relevancy]]
 ) -> list[Element]:
-    """Get all visible elements from the parsed webpage data.
+    """Get all visible elements from the parsed webpage data, sorted by relevance.
 
     Args:
         data (ParsedWebpageData): The parsed webpage data.
@@ -191,7 +191,7 @@ def get_elements(
 
         results.extend(filtered_elements)
 
-    return sorted(results, reverse=True)
+    return sorted(results)  # higher relevance comes first
 
 
 def get_relevance_from_xpath(xpath: str) -> Relevancy:
