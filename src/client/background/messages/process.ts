@@ -9,8 +9,11 @@ import type {
   ResponseBody as WebpageData
 } from '~contents/get-webpage-data';
 
+import { CHECK_NETWORK } from "~utils/error";
+
 const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async (req, res) => {
   const query = req.body.query
+  const model = req.body.model
   const continuous = req.body.continuous
 
   // get webpage data from content script
@@ -18,10 +21,10 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
     name: "get-webpage-data"
   })
 
-  let response = null;
+  let response: Response = null;
 
   try {
-    response = await fetch("http://localhost:8000/process", {
+    response = await fetch(`http://localhost:8000/process?model=${model}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,19 +35,16 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
       })
     })
   } catch (e) {
-    console.error("Error while fetching", e)
-
-    res.send({
-      error: "Couldn't connect to the server. Check whether the server is running or try again later."
-    })
+    console.error(CHECK_NETWORK, e)
+    res.send({ error: CHECK_NETWORK })
   }
 
   const data = await response.json() // { results: Relations[], next_action: Action }
 
-  console.log("data=", data);
+  console.debug("data =", data);
 
-  if (data.status_code !== undefined) {
-    res.send({ error: `The server couldn't process request. (Error code ${data.status_code})` })
+  if (!response.ok) {
+    res.send({ error: response.statusText })
     return
   }
 
@@ -72,6 +72,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
 
 export type RequestBody = {
   query: RelationQuery
+  model: string
   continuous: boolean
 }
 
