@@ -38,11 +38,14 @@ import {
 import type { RequestBody, ResponseBody } from "~background/messages/process"
 import { cn } from "~lib/utils"
 
+const DEFAULT_MODEL = "gemini/gemini-pro"
+// const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
+
 function IndexSidePanel() {
   const [entity, setEntity] = useState("Domain")
   const [attribute, setAttribute] = useState("used for")
   const [continuous, setContinuous] = useState(false)
-  const [model, setModel] = useState("gemini/gemini-pro")
+  const [model, setModel] = useState(DEFAULT_MODEL)
 
   const [open, setOpen] = useState(false)
   const [models, setModels] = useState<string[]>([model])
@@ -50,11 +53,11 @@ function IndexSidePanel() {
   const [response, setResponse] = useState<ResponseBody>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  // fetch list of available models from the server
   useEffect(() => {
     ;(async () => {
-      // fetch models from the server
       try {
-        const response = await fetch("http://localhost:8000/models")
+        const response = await fetch(`http://localhost:8000/models`)
         const data = await response.json()
         setModels(data)
       } catch (error) {
@@ -78,6 +81,7 @@ function IndexSidePanel() {
           entity: entity,
           attribute: attribute === "" ? null : attribute
         },
+        model: model,
         continuous: continuous // true to enable full autonomous nagivation
       }
     })
@@ -85,6 +89,12 @@ function IndexSidePanel() {
     setResponse(response)
     setIsLoading(false)
   }
+
+  // check if server responded
+  const isServerReady = models.length > 0
+
+  // check if all required data is ready and server is operational
+  const isReady = entity.length > 0 && isServerReady && !isLoading
 
   return (
     <ThemeProvider
@@ -122,7 +132,11 @@ function IndexSidePanel() {
           />
         </div>
 
-        <Accordion type="single" collapsible className="w-full -mt-3">
+        <Accordion
+          type="single"
+          collapsible
+          className="w-full -mt-3"
+          defaultValue="advanced-settings">
           <AccordionItem value="advanced-settings">
             <AccordionTrigger>Advanced settings</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-4">
@@ -145,6 +159,7 @@ function IndexSidePanel() {
                       variant="outline"
                       role="combobox"
                       aria-expanded={open}
+                      disabled={!isServerReady}
                       className="w-full justify-between">
                       {model}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -187,7 +202,7 @@ function IndexSidePanel() {
 
         <Button
           variant={isLoading ? "outline" : continuous ? "warning" : "default"}
-          disabled={isLoading}
+          disabled={!isReady}
           onClick={() => {
             processPage()
           }}>
@@ -200,6 +215,18 @@ function IndexSidePanel() {
             "Locate"
           )}
         </Button>
+
+        {!isServerReady && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {response.error
+                ? response.error
+                : "Unknown error occurred. Please try again later."}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {continuous && (
           <Alert variant="warning">
