@@ -1,30 +1,26 @@
-from loguru import logger
-
 import functools
 from time import time
 from sys import stderr
 
+from loguru import logger
+
 from utils.dev import DEV
 
+FORMAT = "<green>{time:YY-MM-DD HH:mm:ss.SSS}</> | <level>{level: <8}</> | <cyan>{file}</>:<cyan>{line}</> | {function} | <level>{message}</>"
 
-# export Logger object
-log = logger
-
-FORMAT_TIME = "{time:YY-MM-DD_HH-mm-ss_SSS}"
-FORMAT = FORMAT_TIME + " | {level: <8} | {file}:{line} {function}() | {message}"
+FORMAT_LOG_FILENAME = "{time:YY-MM-DD_HH-mm-ss_SSS}"
 
 CONFIG = {
     "handlers": [
         {
             "sink": stderr,
             "format": FORMAT,
-            "colorize": True,
             "level": "TRACE" if DEV else "INFO",
             "backtrace": DEV,  # only in development
             "diagnose": DEV,  # only in development
         },
         {
-            "sink": f"logs/{FORMAT_TIME}.log",
+            "sink": f"logs/{FORMAT_LOG_FILENAME}.log",
             "format": FORMAT,
             "level": "TRACE",
             "backtrace": True,
