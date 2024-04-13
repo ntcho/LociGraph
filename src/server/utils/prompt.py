@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 import re
@@ -111,6 +109,8 @@ def generate_extract_prompt(
         target (RelationQuery): The query of relations to extract.
     """
 
+    log.info(f"Generating prompt (title='{title}', len(elements)={len(elements)}, query={str(query)})")
+
     if len(elements) == 0:
         raise RuntimeError("No elements provided.")
 
@@ -141,7 +141,7 @@ def generate_extract_prompt(
         }
     ]
 
-    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
 
     return message
 
@@ -156,22 +156,28 @@ def parse_extract_response(response: str) -> list[Relation]:
         list[Relation]: The list of extracted relations.
     """
 
-    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
+    log.info(f"Parsing response (len(response)={len(response)})")
+    log.debug(f"Parsing response:\n```\n{response}\n```")
 
     relations: list[Relation] = []
 
     if "no relations found" in response.lower():
+        log.info("Response contains 'No relations found'")
         return relations
 
-    for line in response.split("\n"):
-        if not line:
-            continue
+    try:
+        for line in response.split("\n"):
+            if not line:
+                continue
 
-        # Extract the relation from the line
-        match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+            # Extract the relation from the line
+            match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
-        if match:
-            relations.append(Relation(*match.groups()))
+            if match:
+                relations.append(Relation(*match.groups()))
+    except Exception as e:
+        log.warning("Failed to parse the extraction response.")
+        log.exception(e)
 
     return relations
 
@@ -227,6 +233,8 @@ def generate_evaluate_prompt(
         results (list[Relation]): The list of extracted relations to evaluate.
     """
 
+    log.info(f"Generating prompt (query={str(query)}, len(results)={len(results)})")
+    
     relations = "\n".join(
         [f"- {str(r)}" for r in results[:EVALUATE_RELATION_LIMIT]]
     )  # limit the number of relations to evaluate
@@ -242,7 +250,7 @@ def generate_evaluate_prompt(
         }
     ]
 
-    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
 
     return message
 
@@ -257,28 +265,33 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
         tuple[bool, list[Relation]]: A tuple containing a boolean indicating if the extraction results are correct and the list of extracted relations.
     """
 
-    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
+    log.info(f"Parsing response (len(response)={len(response)})")
+    log.debug(f"Parsing response:\n```\n{response}\n```")
 
     answer_stop = "answer: stop" in response.lower()
     answer_continue = "answer: continue" in response.lower()
 
     # check if the response contains either `STOP` or `CONTINUE`
     if answer_stop is not answer_continue:
+        log.error("The response didn't contain either `STOP` or `CONTINUE`.")
         raise RuntimeError("The response must contain either `STOP` or `CONTINUE`.")
 
     relations = []
 
-    for line in response.split("\n"):
-        if not line:
-            continue
+    try:
+        for line in response.split("\n"):
+            if not line:
+                continue
 
-        # Extract the relation from the line
-        match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+            # Extract the relation from the line
+            match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
-        if match:
-            # TODO: handle possible argument mismatch
-            relations.append(Relation(*match.groups()))
-
+            if match:
+                relations.append(Relation(*match.groups()))
+    except Exception as e:
+        log.warning("Failed to parse the evaluation response.")
+        log.exception(e)
+    
     return answer_stop, relations
 
 
@@ -348,6 +361,8 @@ def generate_act_prompt(
         extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
     """
 
+    log.info(f"Generating prompt (url='{url}', title='{title}', len(actions)={len(actions)}, query={str(query)})")
+
     if len(actions) == 0:
         raise RuntimeError("No action elements provided.")
 
@@ -381,7 +396,7 @@ def generate_act_prompt(
         }
     ]
 
-    log.debug(f"PROMPT: Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
 
     return message
 
@@ -397,24 +412,31 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
         Action: The next action predicted by the LLM.
     """
 
-    log.debug(f"PROMPT: Parsing response:\n```\n{response}\n```")
+    log.info(f"Parsing response (len(response)={len(response)})")
+    log.debug(f"Parsing response:\n```\n{response}\n```")
 
     match = re.fullmatch(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
 
     if not match:
+        log.error("The response didn't match the expected format.")
         raise RuntimeError(
             "The response must be in the format 'CLICK [X]', 'TYPE [X] text', or 'TYPESUBMIT [X] text'."
         )
 
-    # TODO: handle possible argument mismatch
-    action_type, id, text = match.groups()
-
-    action_element = list(filter(lambda e: e.id == int(id), actions))
+    try:
+        action_type, id, text = match.groups()
+        
+        # Find the action element with the given id found in the response
+        action_element = list(filter(lambda e: e.id == int(id), actions))
+    except Exception as e:
+        log.error("Failed to parse the action response.")
+        log.exception(e)
+        raise RuntimeError("Failed to parse the action response.")
 
     if len(action_element) == 0:
         raise RuntimeError(f"Action element with id {id} not found.")
 
     if len(action_element) > 1:
         raise RuntimeError(f"Multiple action elements with id {id} found.")
-
+    
     return Action(type=action_type, element=action_element[0], value=text)  # type: ignore

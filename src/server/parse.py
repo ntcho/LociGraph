@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 from base64 import b64decode
@@ -18,7 +16,16 @@ from tinycss2 import parse_stylesheet, serialize
 from dtos import ActionElement, WebpageData, ParsedWebpageData
 
 
+@log_func()
 def parse(data: WebpageData) -> ParsedWebpageData:
+    """Parse the webpage data into a structured format.
+
+    Args:
+        data (WebpageData): Webpage data to parse
+    """
+
+    log.info("")
+
     html = b64decode(data.htmlBase64).decode("utf-8")
 
     # extract plain text and markdown content
@@ -41,6 +48,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     )
 
 
+@log_func()
 def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
     """Extract plain text and markdown from HTML using trafilatura.
 
@@ -57,7 +65,7 @@ def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
         log.info(f"Extracted content in plain text [{len(content)} chars]")
         log.debug(f"Extracted content: \n```\n{content[:500]}\n```")
     else:
-        log.warn(f"Extracted no content")
+        log.warning(f"Extracted no content")
         return None, None
 
     content_markdown = extract(html, include_links=True, url=url)
@@ -164,6 +172,7 @@ tree_drop_attributes = [
 ]
 
 
+@log_func()
 def extract_html(
     html: str, url: str
 ) -> tuple[HtmlElement, _ElementTree, str | None, list[ActionElement]]:
@@ -197,6 +206,7 @@ def extract_html(
     return root, tree, title, actions
 
 
+@log_func()
 def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement]:
     """Extract all interactable elements from the HTML.
 
@@ -261,6 +271,7 @@ def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement
     return get_actions_from_element(tree, links, buttons, inputs)
 
 
+@log_func()
 def clean_html(
     root: HtmlElement, tree: _ElementTree
 ) -> tuple[HtmlElement, _ElementTree]:
@@ -335,6 +346,7 @@ def clean_html(
     return root, tree
 
 
+@log_func()
 def get_actions_from_element(
     tree: _ElementTree,
     links: list[HtmlElement],
@@ -430,6 +442,7 @@ def get_actions_from_element(
     return actions
 
 
+@log_func()
 def get_selectors_from_rule(
     property: str, value: str, styleHtmlElements: list[HtmlElement]
 ) -> list[str]:

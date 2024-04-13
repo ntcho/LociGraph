@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 from litellm import completion
@@ -15,6 +13,7 @@ from utils.file import write_json
 from utils.dev import get_timestamp, read_mock_response
 
 
+@log_func()
 def act(
     actions: list[ActionElement],
     query: RelationQuery,
@@ -45,11 +44,10 @@ def act(
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
         # Save the response to a file
-        write_json(f"logs/response_act_{get_timestamp()}.json", response.json())  # type: ignore
+        write_json(f"logs/{get_timestamp()}_response_act.json", response.json())  # type: ignore
 
         response_content = response["choices"][0]["message"]["content"]  # type: ignore
 
-        log.debug(response_content)
         action = parse_act_response(response_content, actions)
 
         return action

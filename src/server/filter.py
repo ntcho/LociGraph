@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 import re
@@ -16,6 +14,7 @@ from lxml.etree import _ElementTree
 
 from dtos import ActionElement, Element, ParsedWebpageData, RelationQuery
 
+from utils.props import read_props_index
 from utils.file import read_json
 
 
@@ -40,6 +39,7 @@ tag_relevance_level = {
 }
 
 
+@log_func()
 def filter(
     data: ParsedWebpageData, query: RelationQuery
 ) -> tuple[list[Element], list[ActionElement]]:
@@ -150,6 +150,7 @@ def get_keyword_xpath_query(keywords: list[str]) -> str | None:
     return xpath_query
 
 
+@log_func()
 def filter_elements(
     data: ParsedWebpageData, keywords: list[tuple[str, Relevancy]]
 ) -> list[Element]:
@@ -209,6 +210,7 @@ def filter_elements(
     return sorted(results)  # higher relevance comes first
 
 
+@log_func()
 def filter_action_elements(
     data: ParsedWebpageData, keywords: list[tuple[str, Relevancy]]
 ) -> list[ActionElement]:
@@ -284,6 +286,8 @@ def calculate_location_relevance(xpath: str) -> Relevancy:
     return Relevancy.MEDIUM
 
 
+STOPWORD_PATH = "utils/stopwords.json"
+
 en: wn.Wordnet | None = None
 index: dict[str, list[str]] | None = None
 stopwords: list[str] | None = None
@@ -303,13 +307,14 @@ def init_expansion():
 
     global index
     if index is None:
-        index = read_json("utils/props-index.json")  # from `utils/wikidata-props.py`
+        index = read_props_index()
 
     global stopwords
     if stopwords is None:
-        stopwords = read_json("utils/stopwords.json")
+        stopwords = read_json(STOPWORD_PATH)
 
 
+@log_func()
 def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     """Find synonyms, related words, and aliases of the given keywords from
     WikiData and Wordnet.

@@ -1,4 +1,7 @@
 from os import getenv
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from `.env` file
 
 ENV: str = getenv("ENV", "development")
 
@@ -27,7 +30,8 @@ def read_mock_response(file_path: str) -> str | None:
         return None
 
 
-def get_timestamp() -> str:
-    from datetime import datetime
+from datetime import datetime
 
-    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+def get_timestamp() -> str:
+    return datetime.now().strftime("%y-%m-%d_%H-%M-%S")

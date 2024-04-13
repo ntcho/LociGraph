@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 from litellm import completion
@@ -17,6 +15,7 @@ from utils.dev import get_timestamp
 import utils.error as error
 
 
+@log_func()
 def evaluate(
     query: RelationQuery,
     results: list[Relation],
@@ -43,11 +42,10 @@ def evaluate(
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
         # Save the response to a file
-        write_json(f"logs/response_evaluate_{get_timestamp()}.json", response.json())  # type: ignore
+        write_json(f"logs/{get_timestamp()}_response_evaluate.json", response.json())  # type: ignore
 
         response_content = response["choices"][0]["message"]["content"]  # type: ignore
 
-        log.debug(response_content)
         is_complete, relations = parse_evaluate_response(response_content)
 
         return is_complete, relations

@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 from dataclasses import dataclass
@@ -32,6 +30,7 @@ class Triplet:
     tail_type: str
 
 
+@log_func()
 def extract(text: str) -> list[Relation]:
     """Extract triplets from the given text.
 
@@ -44,6 +43,7 @@ def extract(text: str) -> list[Relation]:
     Raises:
         Exception: If the triplet extractor or tokenizer is not initialized.
     """
+
     if triplet_extractor is None or triplet_extractor.tokenizer is None:
         raise Exception("Triplet extractor not initialized")
 

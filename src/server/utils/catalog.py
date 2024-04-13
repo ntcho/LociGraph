@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 import requests
 
@@ -32,17 +30,21 @@ def read_catalog() -> dict[str, ModelDetail] | None:
         log.info(f"Cached catalog found: {CATALOG_PATH}")
     except FileNotFoundError:
         try:
-            log.info(f"Downloading catalog from: {CATALOG_URL}")
+            log.info(f"Catalog not found at `{CATALOG_PATH}`")
             models = download_catalog()
-        except RuntimeError:
+        except RuntimeError as e:
+            log.exception(e)
             return None
 
+    # remove non-chat/completion models (e.g. image, video)
     for id, detail in models.items():
         try:
             if detail.mode not in ["chat", "completion"]:
                 models.pop(id)
         except AttributeError:
             pass
+
+    log.info(f"Found {len(models)} models in the catalog")
 
     return models
 
@@ -54,10 +56,13 @@ def download_catalog() -> dict[str, ModelDetail]:
         dict[str, str]: Dictionary of available models.
     """
 
+    log.info(f"Downloading catalog from `{CATALOG_URL}`")
     response = requests.get(CATALOG_URL)
 
     if response.status_code == 200:
         write_json(CATALOG_PATH, response.json())
+        log.success(f"Downloaded catalog from `{CATALOG_URL}`")
+
         return response.json()
     else:
         raise RuntimeError(f"Failed to download file from `{CATALOG_URL}`")

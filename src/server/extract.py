@@ -1,8 +1,6 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
 
 
 import requests
@@ -17,6 +15,7 @@ from utils.file import write_json
 from utils.dev import get_timestamp, read_mock_response
 
 
+@log_func()
 def extract(
     elements: list[Element],
     query: RelationQuery,
@@ -37,6 +36,7 @@ def extract(
     return results
 
 
+@log_func()
 def extract_mrebel(elements: list[Element]) -> list[Relation]:
     """Extract relation triplets with mREBEL model.
 
@@ -48,6 +48,10 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
     """
 
     try:
+        log.info(
+            f"Extracting relations with mREBEL model (len(elements)={len(elements)})"
+        )
+
         # send a POST request to the app_extract endpoint
         response = requests.post(
             "http://localhost:8001/extract/",
@@ -56,10 +60,15 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
         )
 
         if response.ok:
+            log.success(
+                f"Extracted {len(response.json())} relations with mREBEL model."
+            )
             # unpack json response to list of RelationQuery objects
             return [Relation(**r) for r in response.json()]
         else:
-            log.error(f"{response.json()} (code {response.status_code})")
+            log.warning(
+                f"Failed to extract relations with mREBEL model (code={response.status_code}, response={response.json()})"
+            )
             return []
 
     except Exception as e:
@@ -68,6 +77,7 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
         return []
 
 
+@log_func()
 def extract_llm(
     elements: list[Element],
     query: RelationQuery,
@@ -98,11 +108,10 @@ def extract_llm(
         # See more: https://docs.litellm.ai/docs/observability/callbacks
 
         # Save the response to a file
-        write_json(f"logs/response_extract_{get_timestamp()}.json", response.json())  # type: ignore
+        write_json(f"logs/{get_timestamp()}_response_extract.json", response.json())  # type: ignore
 
         response_content = response["choices"][0]["message"]["content"]  # type: ignore
 
-        log.debug(response_content)
         results = parse_extract_response(response_content)  # type: ignore
 
         return results
@@ -111,4 +120,5 @@ def extract_llm(
         # See more: https://docs.litellm.ai/docs/exception_mapping
         log.error(f"Failed to extract relations with LLM `{model_id}`.")
         log.exception(e)
+
         return []

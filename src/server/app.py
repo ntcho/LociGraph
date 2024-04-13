@@ -1,8 +1,7 @@
-import utils.logging as _log
+from utils.logging import log, log_func, CONFIG
 
-_log.configure(format=_log.FORMAT)
-log = _log.getLogger(__name__)
-log.setLevel(_log.LEVEL)
+log.configure(**CONFIG)
+
 
 from litestar import Litestar, post, get, exceptions
 from dotenv import load_dotenv
@@ -24,13 +23,13 @@ from dtos import (
 )
 
 from utils.catalog import read_catalog, DEFAULT_MODEL
-from utils.file import read_txt
 import utils.error as error
 
 
 load_dotenv()  # Load environment variables from `.env` file
 
 
+@log_func()
 @post("/process/")
 async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
     """Process the given extraction query.
@@ -91,6 +90,7 @@ async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
 models = read_catalog()
 
 
+@log_func()
 @get("/models/")
 async def get_models() -> list[str]:
     """Return a list of all available models.
@@ -108,6 +108,7 @@ async def get_models() -> list[str]:
     return list(models.keys())
 
 
+@log_func()
 @get("/model/")
 async def get_model_detail(model_id: str) -> ModelDetail:
     """Return the details of the given model.
@@ -135,12 +136,10 @@ async def get_model_detail(model_id: str) -> ModelDetail:
 
 
 # Default litestar instance
-app = Litestar(
-    route_handlers=[process_pipeline, get_models, get_model_detail],
-    logging_config=_log.CONFIG,
-)
+app = Litestar(route_handlers=[process_pipeline, get_models, get_model_detail])
 
 
+@log_func()
 @post("/extract/")
 async def extract_relation(data: str) -> list[Relation]:
     """Extract relation triplets from the given paragraph.
@@ -170,4 +169,4 @@ async def extract_relation(data: str) -> list[Relation]:
 
 
 # Separate litestar instance for mREBEL model
-app_extract = Litestar(route_handlers=[extract_relation], logging_config=_log.CONFIG)
+app_extract = Litestar(route_handlers=[extract_relation])
