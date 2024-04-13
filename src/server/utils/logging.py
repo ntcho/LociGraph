@@ -31,7 +31,7 @@ CONFIG = {
             "diagnose": True,
         },
     ],
-    "levels": None,
+    "levels": [dict(name="TRACE", color="<dim>")],
 }
 
 
