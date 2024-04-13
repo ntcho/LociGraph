@@ -1,11 +1,9 @@
-from os import getenv
-from dotenv import load_dotenv
+from dotenv import get_key
 
-load_dotenv()  # Load environment variables from `.env` file
+# Load environment variables from `.env` file
+ENV: str | None = get_key(".env", "ENV")
 
-ENV: str = getenv("ENV", "development")
-
-PROD: bool = ENV == "production"
+PROD: bool = ENV is not None and ENV == "production"
 DEV: bool = not PROD
 
 
