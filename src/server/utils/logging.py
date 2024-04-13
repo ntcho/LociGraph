@@ -64,3 +64,9 @@ def log_func(*, entry=True, exit=True, level="TRACE"):
         return wrapped
 
     return wrapper
+
+
+# export Logger object
+logger.configure(**CONFIG)
+
+log = logger

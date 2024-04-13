@@ -1,6 +1,4 @@
-from utils.logging import log, log_func, CONFIG
-
-log.configure(**CONFIG)
+from utils.logging import log, log_func
 
 import requests
 
@@ -25,7 +23,7 @@ def read_props_index() -> dict[str, list[str]] | None:
 
     try:
         index = read_json(PROPS_INDEX_PATH)
-        log.info(f"Cached index found: {PROPS_INDEX_PATH}")
+        log.info(f"Cached index found `{PROPS_INDEX_PATH}`")
     except FileNotFoundError:
         try:
             log.info(f"Index not found at `{PROPS_INDEX_PATH}`")

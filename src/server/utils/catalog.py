@@ -1,6 +1,4 @@
-from utils.logging import log, log_func, CONFIG
-
-log.configure(**CONFIG)
+from utils.logging import log, log_func
 
 import requests
 
@@ -27,7 +25,7 @@ def read_catalog() -> dict[str, ModelDetail] | None:
 
     try:
         models: dict[str, ModelDetail] = read_json(CATALOG_PATH)
-        log.info(f"Cached catalog found: {CATALOG_PATH}")
+        log.info(f"Cached catalog found `{CATALOG_PATH}`")
     except FileNotFoundError:
         try:
             log.info(f"Catalog not found at `{CATALOG_PATH}`")

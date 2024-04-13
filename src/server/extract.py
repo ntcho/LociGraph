@@ -1,6 +1,4 @@
-from utils.logging import log, log_func, CONFIG
-
-log.configure(**CONFIG)
+from utils.logging import log, log_func
 
 
 import requests

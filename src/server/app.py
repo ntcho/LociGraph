@@ -1,6 +1,4 @@
-from utils.logging import log, log_func, CONFIG
-
-log.configure(**CONFIG)
+from utils.logging import log, log_func
 
 
 from litestar import Litestar, post, get, exceptions
@@ -16,7 +14,6 @@ from dtos import (
     ModelDetail,
     Query,
     ExtractionEvent,
-    Relation,
     EvaluationEvent,
     Response,
     ScrapeEvent,
@@ -29,9 +26,9 @@ import utils.error as error
 load_dotenv()  # Load environment variables from `.env` file
 
 
+@post("/process/", sync_to_thread=True)
 @log_func()
-@post("/process/")
-async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
+def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
     """Process the given extraction query.
 
     Note:
@@ -87,17 +84,25 @@ async def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
     # FUTURE: add cloud storage for ExtractionEvent data
 
 
-models = read_catalog()
+models = None
 
 
+@get("/models/", sync_to_thread=False)
 @log_func()
-@get("/models/")
-async def get_models() -> list[str]:
+def get_models() -> list[str]:
     """Return a list of all available models.
 
     Returns:
         list[str]: List of available models.
     """
+
+    global models
+
+    if models is None:
+        try:
+            models = read_catalog()
+        except Exception as e:
+            log.exception(e)
 
     if models is None:
         raise exceptions.HTTPException(
@@ -108,9 +113,9 @@ async def get_models() -> list[str]:
     return list(models.keys())
 
 
+@get("/model/", sync_to_thread=False)
 @log_func()
-@get("/model/")
-async def get_model_detail(model_id: str) -> ModelDetail:
+def get_model_detail(model_id: str) -> ModelDetail:
     """Return the details of the given model.
 
     Args:
@@ -137,36 +142,3 @@ async def get_model_detail(model_id: str) -> ModelDetail:
 
 # Default litestar instance
 app = Litestar(route_handlers=[process_pipeline, get_models, get_model_detail])
-
-
-@log_func()
-@post("/extract/")
-async def extract_relation(data: str) -> list[Relation]:
-    """Extract relation triplets from the given paragraph.
-
-    Note:
-        This litestar app runs on a separate litestar instance in order to
-        enable hot reload on the main litestar app.
-        Use `LITESTAR_APP=app:app_extract litestar run --port 8001 --pdb` to
-        start the server.
-
-    Args:
-        data (str): String containing the paragraph to extract relations from.
-
-    Returns:
-        list[Relation]: List of extracted relations triplets.
-    """
-
-    if data is None or data == "":
-        raise exceptions.HTTPException(
-            status_code=400,
-            detail=f"Couldn't read request body. {error.CHECK_INPUT}",
-        )
-
-    from models.mrebel import extract
-
-    return extract(data)
-
-
-# Separate litestar instance for mREBEL model
-app_extract = Litestar(route_handlers=[extract_relation])

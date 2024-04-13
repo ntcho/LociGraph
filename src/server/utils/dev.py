@@ -1,9 +1,10 @@
-from dotenv import get_key
+from dotenv import load_dotenv
+from os import getenv
 
 # Load environment variables from `.env` file
-ENV: str | None = get_key(".env", "ENV")
+load_dotenv(".env")
 
-PROD: bool = ENV is not None and ENV == "production"
+PROD: bool = getenv("ENV", "development") == "production"
 DEV: bool = not PROD
 
 
@@ -28,8 +29,7 @@ def read_mock_response(file_path: str) -> str | None:
         return None
 
 
-from datetime import datetime
-
-
 def get_timestamp() -> str:
+    from datetime import datetime
+
     return datetime.now().strftime("%y-%m-%d_%H-%M-%S")
