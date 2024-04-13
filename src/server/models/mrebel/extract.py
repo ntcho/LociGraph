@@ -1,6 +1,4 @@
-from utils.logging import log, log_func, CONFIG
-
-log.configure(**CONFIG)
+from utils.logging import log, log_func
 
 
 from dataclasses import dataclass
@@ -10,12 +8,8 @@ from transformers import pipeline
 
 from dtos import Relation
 
-triplet_extractor = pipeline(
-    "translation_xx_to_yy",
-    model="Babelscape/mrebel-large",
-    tokenizer="Babelscape/mrebel-large",
-)
-log.info("Initialized triplet extractor pipeline")
+
+triplet_extractor = None
 
 
 @dataclass
@@ -44,8 +38,11 @@ def extract(text: str) -> list[Relation]:
         Exception: If the triplet extractor or tokenizer is not initialized.
     """
 
+    if triplet_extractor is None:
+        load_pipeline()
+
     if triplet_extractor is None or triplet_extractor.tokenizer is None:
-        raise Exception("Triplet extractor not initialized")
+        raise Exception("Failed to load the triplet extractor pipeline")
 
     log.info(f"Extracting triplets from text: \n```\n{text}\n```")
 
@@ -169,3 +166,30 @@ def extract_triplets(extracted_text: str) -> list[Triplet]:
         )
 
     return triplets
+
+
+@log_func()
+def load_pipeline() -> bool:
+    """Load the triplet extractor pipeline.
+
+    Returns:
+        bool: True if the pipeline was loaded successfully, False otherwise.
+    """
+
+    global triplet_extractor
+
+    if triplet_extractor is None:
+        try:
+            # load mREBEL model via HF pipeline
+            triplet_extractor = pipeline(
+                task="translation_xx_to_yy",
+                model="Babelscape/mrebel-large",
+                tokenizer="Babelscape/mrebel-large",
+            )
+            log.success("Initialized triplet extractor pipeline")
+            return True
+        except Exception as e:
+            log.exception(e)
+            return False
+
+    return False
