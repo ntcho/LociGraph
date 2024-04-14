@@ -71,11 +71,6 @@ class Element:
         # e.g. /html/body/div[1] is better than /html/body/div[2]
         return self.xpath < other.xpath
 
-    def removehtmlelement(self):
-        """Remove the `HtmlElement` object for serialization."""
-
-        del self.html_element
-
     def getrepr(self) -> str:
         """Get the representation of the element in a string format `xpath='...',
         relevancy='0.0' relevance={k: v} details={k: v}, content='...'`.
@@ -166,6 +161,24 @@ class ActionElement(Element):
 
         return aria_label
 
+    def getresponseobject(self) -> "ActionElement":
+        """Remove unserializable attributes from the action element."""
+
+        copy = self.__class__(
+            self.xpath,
+            self.html_element,
+            self.content,
+            self.details,
+            self.relevance,
+            self.id,
+            self.type,
+        )
+
+        del copy.html_element
+        del copy.relevance
+
+        return copy
+
     def getrepr(self) -> str:
         """Get the representation of the action element in a string format `id=0,
         type='TYPE' xpath='...', relevancy='0.0' relevance={k: v} details={k: v},
@@ -196,10 +209,9 @@ class Action:
     type: Literal["CLICK", "TYPE", "TYPESUBMIT"]
     value: str | None  # for TYPE and TYPESUBMIT
 
-    def removehtmlelement(self):
-        """Remove the `HtmlElement` object from element for serialization."""
-
-        self.element.removehtmlelement()
+    def getresponseobject(self):
+        """Remove unserializable attributes from the action element."""
+        return self.__class__(self.element.getresponseobject(), self.type, self.value)
 
     def __repr__(self) -> str:
         """Get the representation of the action in a string format `type='...', value='...',
@@ -207,7 +219,7 @@ class Action:
         """
 
         value = "" if self.value is None else f" value='{self.value}'"
-        return f"<dtos.{self.__class__.__name__} type={self.type} {value} element={self.element.__repr__}>"
+        return f"<dtos.{self.__class__.__name__} type={self.type}{value} element={self.element.__repr__()}>"
 
 
 @dataclass
@@ -479,11 +491,11 @@ class Response:
             next_action (Action | None): The next action to take based on the extraction results.
             confidence_level (str | None): The confidence level of the extraction results.
         """
-        if next_action is not None:
-            next_action.removehtmlelement()
 
         self.results = results
-        self.next_action = next_action
+        self.next_action = (
+            next_action.getresponseobject() if next_action is not None else None
+        )
         self.confidence_level = confidence_level
 
     def __repr__(self) -> str:
