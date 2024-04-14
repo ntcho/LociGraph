@@ -46,18 +46,30 @@ def log_func(*, entry=True, exit=True, level="TRACE"):
         def wrapped(*args, **kwargs):
             # logger_ = log.opt(depth=1)
 
+            args_str = [f"\t- arg{i} = {repr(a)}" for i, a in enumerate(list(args))]
+            kwargs_str = [f"\t- {k} = {repr(v)}" for k, v in kwargs.items()]
+
+            args_kwargs_str = "\n".join(args_str + kwargs_str)
+
             if entry:
-                log.log(level, "Entering '{}' (args={}, kwargs={})", name, args, kwargs)
+                log.log(
+                    level,
+                    f"Entering '{name}'\n{args_kwargs_str}",
+                )
 
             start = time()
 
             result = func(*args, **kwargs)
 
             end = time()
-            d = end - start
+
+            result_str = f"\n\t- result = {repr(result)}" if result is not None else ""
 
             if exit:
-                log.log(level, "Exiting '{}' (exec={:f}s, result={})", name, d, result)
+                log.log(
+                    level,
+                    f"Exiting '{name}' (exec={(end - start):f}s){result_str}",
+                )
 
             return result
 
