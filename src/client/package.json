@@ -50,7 +50,8 @@
     ],
     "permissions": [
       "scripting",
-      "activeTab"
+      "activeTab",
+      "debugger"
     ],
     "externally_connectable": {
       "matches": [

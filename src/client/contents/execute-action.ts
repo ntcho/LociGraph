@@ -1,3 +1,4 @@
+import { sendToBackground } from '@plasmohq/messaging';
 import { listen as listenMessage } from '@plasmohq/messaging/message';
 import type { PlasmoCSConfig } from "plasmo"
 
@@ -22,17 +23,31 @@ const getElementByXpath = (path: string): HTMLElement => {
 
 const clickElement = (element: HTMLElement) => {
   element.click()
+  console.info("Clicked element", element);
 }
 
 const typeElement = (element: HTMLInputElement, value: string) => {
   element.focus()
   element.value = value
+  console.info("Typed value", value, "in element", element);
 }
 
-const typeSubmitElement = (element: HTMLInputElement, value: string) => {
-  element.focus()
-  element.value = value
-  element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
+const typeSubmitElement = async (element: HTMLInputElement, value: string) => {
+  typeElement(element, value)
+
+  const dispatch = await sendToBackground({
+    name: "send-command",
+    body: {
+      // from https://stackoverflow.com/a/21983702/4524257
+      method: "Input.dispatchKeyEvent",
+      commandParams: {
+        "type": "rawKeyDown",
+        "windowsVirtualKeyCode": 13,
+        "unmodifiedText": "\r",
+        "text": "\r"
+      }
+    }
+  })
 }
 
 const executeAction = (req: RequestBody): ResponseBody => {
