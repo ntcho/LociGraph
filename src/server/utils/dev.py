@@ -20,7 +20,7 @@ def read_file_to_base64(file_path: str) -> str:
 
 def read_mock_response(file_path: str) -> str | None:
     try:
-        if DEV:
+        if getenv("MOCK_RESPONSE", "false") == "true":
             from utils.file import read_txt
 
             return read_txt(file_path)
