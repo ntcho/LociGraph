@@ -228,32 +228,30 @@ def filter_action_elements(
     result: list[ActionElement] = []
 
     for action in data.actions:
+
         # check whether action is a search input
-        if action.details is not None and (
-            "search"
-            in (
-                action.details.get("placeholder", "") + action.details.get("label", "")
-            ).lower()
-        ):
+        if action.type == "INPUT" and "search" in action.getdetails().lower():
             # search input is always relevant
             action.relevance = {"content": Relevancy.HIGHEST}
-            continue
+            log.debug(f"Found search input: {repr(action)}")
 
-        # check whether action contains any of the keywords
-        for keyword, content_relevance in keywords:
-            if keyword in action.content.lower():
+        else:
+            # check whether action contains any of the keywords
+            for keyword, content_relevance in keywords:
+                if action.content is not None and keyword in action.content.lower():
+                    action.relevance = {
+                        "content": content_relevance,
+                        "location": calculate_location_relevance(action.xpath),
+                        # FUTURE: add relevancy based on distance with filtered elements
+                    }
+                    log.debug(f"Found action with keyword: {repr(action)}")
+                    break
+
+            if action.relevance is None:
                 action.relevance = {
-                    "content": content_relevance,
+                    "content": Relevancy.LOW,
                     "location": calculate_location_relevance(action.xpath),
-                    # FUTURE: add relevancy based on distance with filtered elements
                 }
-                break
-
-        if action.relevance is None:
-            action.relevance = {
-                "content": Relevancy.LOW,
-                "location": calculate_location_relevance(action.xpath),
-            }
 
         result.append(action)
 
@@ -347,7 +345,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
             for k in index[keyword]:
                 results.append((k, Relevancy.HIGHEST))
 
-            log.info(f"  alias: added {index[keyword]}")
+            log.debug(f"  alias: added {index[keyword]}")
         except KeyError:
             pass  # no aliases found
 
@@ -377,7 +375,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
                 for form in word.forms():
                     results.append((form, Relevancy.HIGH))
 
-            log.info(f"  synset: added {synset.lemmas()}")
+            log.debug(f"  synset: added {synset.lemmas()}")
 
             # add all words from related synsets of current synset
             for related_synset in synset.get_related():
@@ -385,7 +383,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
                     for form in word.forms():
                         results.append((form, Relevancy.LOW))
 
-                log.info(f"    related: added {related_synset.lemmas()}")
+                log.trace(f"    related: added {related_synset.lemmas()}")
 
     # remove stopwords from expanded keywords
     results = [(k, r) for k, r in results if k not in stopwords]
