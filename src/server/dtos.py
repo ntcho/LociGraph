@@ -74,6 +74,26 @@ class Element:
 
         del self.html_element
 
+    def getrepr(self) -> str:
+        """Get the representation of the element in a string format `xpath='...',
+        relevancy='0.0' relevance={k: v} details={k: v}, content='...'`.
+        """
+
+        details = "" if self.details is None else f" details={{{self.getdetails()}}}"
+        relevance = (
+            ""
+            if self.relevance is None
+            else f" relevancy={self.getrelevancy()} relevance={{{self.relevance}}}"
+        )
+        return f"xpath='{self.xpath}'{relevance}{details} content='{self.content}'"
+
+    def __repr__(self) -> str:
+        """Get the representation of the element in a string format `xpath='...',
+        relevancy='0.0' relevance={k: v} details={k: v}, content='...'`.
+        """
+
+        return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
+
 
 @dataclass
 class ActionElement(Element):
@@ -105,6 +125,21 @@ class ActionElement(Element):
 
         return f"[{self.id}] {self.type} '{self.content}' ({self.getdetails()})"
 
+    def getrepr(self) -> str:
+        """Get the representation of the action element in a string format `id=0,
+        type='TYPE' xpath='...', relevancy='0.0' relevance={k: v} details={k: v},
+        content='...'`.
+        """
+        return f"id={self.id}, type={self.type} {super().getrepr()}"
+
+    def __repr__(self) -> str:
+        """Get the representation of the action element in a string format `id=0,
+        type='TYPE' xpath='...', relevancy='0.0' relevance={k: v} details={k: v},
+        content='...'`.
+        """
+
+        return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
+
 
 @dataclass
 class Action:
@@ -125,6 +160,14 @@ class Action:
 
         self.element.removehtmlelement()
 
+    def __repr__(self) -> str:
+        """Get the representation of the action in a string format `type='...', value='...',
+        element=...`.
+        """
+
+        value = "" if self.value is None else f" value='{self.value}'"
+        return f"<dtos.{self.__class__.__name__} type={self.type} {value} element={self.element.__repr__}>"
+
 
 @dataclass
 class WebpageData:
@@ -141,6 +184,18 @@ class WebpageData:
     htmlBase64: str
     imageBase64: str  # FUTURE: use screenshot image with multimodal models
     language: str
+
+    def __repr__(self) -> str:
+        """Get the representation of the webpage data in a string format `url='...',
+        language='...', len(htmlBase64)=0, len(imageBase64)=0`."""
+        return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
+
+    def getrepr(self) -> str:
+        """Get the representation of the webpage data in a string format `url='...',
+        language='...', len(htmlBase64)=0, len(imageBase64)=0`.
+        """
+
+        return f"url='{self.url}' language='{self.language}' len(htmlBase64)={len(self.htmlBase64)} len(imageBase64)={len(self.imageBase64)}"
 
 
 @dataclass
@@ -161,6 +216,18 @@ class ParsedWebpageData(WebpageData):
     contentHTML: HtmlElement | None
     contentTree: _ElementTree | None
     actions: list[ActionElement]
+
+    def getrepr(self) -> str:
+        content = "" if self.content is None else f" len(content)={len(self.content)}"
+        return f"title='{self.title}' actions=[{self.actions}]{content} {super().getrepr()}"
+
+    def __repr__(self) -> str:
+        """Get the representation of the parsed webpage data in a string format
+        `title='...', actions=[...], len(content)=0, url='...', language='...',
+        len(htmlBase64)=0, len(imageBase64)=0`.
+        """
+
+        return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
 
 
 @dataclass
@@ -184,6 +251,11 @@ class Relation:
 
     def __str__(self) -> str:
         return f"[{self.entity}, {self.attribute}, {self.value}]"
+
+    def __repr__(self) -> str:
+        """Get the representation of the relation in a string format `[entity, attribute, value]`."""
+
+        return f"<dtos.{self.__class__.__name__} {self.__str__()}>"
 
 
 @dataclass
@@ -221,6 +293,10 @@ class RelationQuery(Relation):
         else:
             return f"Find all attribute of entity `{self.entity}`."
 
+    def __repr__(self) -> str:
+        """Get the representation of the relation query in a string format `[entity, attribute, value]`."""
+        return f"<dtos.{self.__class__.__name__} {self.__str__()}>"
+
 
 @dataclass
 class Event:
@@ -231,6 +307,11 @@ class Event:
     """
 
     id: str = field(default=uuid7str(), kw_only=True)
+
+    def __repr__(self) -> str:
+        """Get the representation of the event in a string format `id='...'`."""
+
+        return f"<dtos.{self.__class__.__name__} id='{self.id}'>"
 
 
 @dataclass
@@ -243,6 +324,11 @@ class ScrapeEvent(Event):
     """
 
     data: ParsedWebpageData
+
+    def __repr__(self) -> str:
+        """Get the representation of the scrape event in a string format `id='...', data=...`."""
+
+        return f"<dtos.{self.__class__.__name__} id='{self.id}' data={self.data.__repr__()}>"
 
 
 @dataclass
@@ -258,6 +344,13 @@ class ExtractionEvent(Event):
     data: ScrapeEvent
     query: RelationQuery
     results: list[Relation]
+
+    def __repr__(self) -> str:
+        """Get the representation of the extraction event in a string format `id='...',
+        query=..., results=[...], data=...`.
+        """
+
+        return f"<dtos.{self.__class__.__name__} id='{self.id}' query={self.query.__repr__()} results={self.results} data={self.data.__repr__()}>"
 
 
 @dataclass
@@ -279,6 +372,23 @@ class EvaluationEvent(Event):
     def getresponse(self) -> "Response":
         return Response(self.results, self.next_action, self.confidence_level)
 
+    def __repr__(self) -> str:
+        """Get the representation of the evaluation event in a string format `id='...',
+        next_action=..., confidence_level='...', results=[...], data=...`.
+        """
+
+        next_action = (
+            ""
+            if self.next_action is None
+            else f" next_action={self.next_action.__repr__()}"
+        )
+        confidence_level = (
+            ""
+            if self.confidence_level is None
+            else f" confidence_level={self.confidence_level}"
+        )
+        return f"<dtos.{self.__class__.__name__} id='{self.id}'{next_action}{confidence_level} results={self.results} data={self.data.__repr__()}>"
+
 
 @dataclass
 class Query:
@@ -291,6 +401,11 @@ class Query:
 
     data: WebpageData
     query: RelationQuery
+
+    def __repr__(self) -> str:
+        """Get the representation of the query in a string format `data=..., query=...`."""
+
+        return f"<dtos.{self.__class__.__name__} data={self.data.__repr__()} query={self.query.__repr__()}>"
 
 
 @dataclass
@@ -313,12 +428,39 @@ class Response:
         next_action: Action | None,
         confidence_level: Optional[str] = None,
     ):
+        """Initialize the response object.
+
+        Note:
+            The `HtmlElement` of `next_action` will be removed for serialization.
+
+        Args:
+            results (list[Relation]): The extracted relations.
+            next_action (Action | None): The next action to take based on the extraction results.
+            confidence_level (str | None): The confidence level of the extraction results.
+        """
         if next_action is not None:
             next_action.removehtmlelement()
 
         self.results = results
         self.next_action = next_action
         self.confidence_level = confidence_level
+
+    def __repr__(self) -> str:
+        """Get the representation of the response in a string format `results=[...],
+        next_action=..., confidence_level='...'`.
+        """
+
+        next_action = (
+            ""
+            if self.next_action is None
+            else f" next_action={self.next_action.__repr__()}"
+        )
+        confidence_level = (
+            ""
+            if self.confidence_level is None
+            else f" confidence_level={self.confidence_level}"
+        )
+        return f"<dtos.{self.__class__.__name__} results={self.results}{next_action}{confidence_level}>"
 
 
 @dataclass
