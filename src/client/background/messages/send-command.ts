@@ -2,29 +2,47 @@ import type { PlasmoMessaging } from "@plasmohq/messaging";
 
 
 const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = (req, res) => {
-  // console.log("req", req)
 
-  chrome.debugger.attach({ tabId: req.sender.tab.id }, "1.3", async function () {
+  console.debug("Received request to send commands", req)
 
-    const response = await chrome.debugger.sendCommand(
-      { tabId: req.sender.tab.id },
-      req.body.method,
-      req.body.commandParams
-    )
+  if (req.body.commands.length === 0) {
+    res.send({ error: "No commands to execute" })
+    return
+  }
 
-    console.info("sendCommand", req.body, response);
+  const targetTab = { tabId: req.sender.tab.id }
 
-    res.send({ error: null })
+  chrome.debugger.attach(targetTab, "1.3", async function () {
+
+    const results = []
+
+    // execute each command
+    for (const command of req.body.commands) {
+      const response = await chrome.debugger.sendCommand(
+        targetTab,
+        command.method,
+        command.commandParams
+      )
+
+      results.push({ request: command, response: response })
+    }
+
+    res.send({ error: null, response: JSON.stringify(results) })
   })
 }
 
-export type RequestBody = {
+export type Command = {
   method: string
   commandParams?: Object
 }
 
+export type RequestBody = {
+  commands: Command[]
+}
+
 export type ResponseBody = {
   error: string | null
+  response?: string
 }
 
 export default handler

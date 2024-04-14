@@ -1,6 +1,11 @@
 import { sendToBackground } from '@plasmohq/messaging';
 import { listen as listenMessage } from '@plasmohq/messaging/message';
 import type { PlasmoCSConfig } from "plasmo"
+import type {
+  Command,
+  RequestBody as CommandRequestBody,
+  ResponseBody as CommandResponseBody
+} from '~background/messages/send-command';
 
 import type { Action } from "~types";
 
@@ -35,19 +40,35 @@ const typeElement = (element: HTMLInputElement, value: string) => {
 const typeSubmitElement = async (element: HTMLInputElement, value: string) => {
   typeElement(element, value)
 
-  const dispatch = await sendToBackground({
+  const enterCommands: Command[] = [
+    // from https://github.com/ChromeDevTools/devtools-protocol/issues/45#issuecomment-850953391
+    {
+      method: "Input.dispatchKeyEvent",
+      commandParams: { "type": "rawKeyDown", "windowsVirtualKeyCode": 13, "unmodifiedText": "\r", "text": "\r" }
+    },
+    {
+      method: "Input.dispatchKeyEvent",
+      commandParams: { "type": "char", "windowsVirtualKeyCode": 13, "unmodifiedText": "\r", "text": "\r" }
+    },
+    {
+      method: "Input.dispatchKeyEvent",
+      commandParams: { "type": "keyUp", "windowsVirtualKeyCode": 13, "unmodifiedText": "\r", "text": "\r" }
+    },
+  ]
+
+  const response = await sendToBackground<CommandRequestBody, CommandResponseBody>({
     name: "send-command",
     body: {
       // from https://stackoverflow.com/a/21983702/4524257
-      method: "Input.dispatchKeyEvent",
-      commandParams: {
-        "type": "rawKeyDown",
-        "windowsVirtualKeyCode": 13,
-        "unmodifiedText": "\r",
-        "text": "\r"
-      }
+      commands: enterCommands
     }
   })
+
+  if (response.error) {
+    console.error("Error while dispatching enter key", response.error)
+  } else {
+    console.info("Dispatched enter key", response.response)
+  }
 }
 
 const executeAction = (req: RequestBody): ResponseBody => {
