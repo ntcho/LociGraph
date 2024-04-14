@@ -368,6 +368,7 @@ def get_actions_from_element(
     for element in inputs:
         placeholder: str | None = element.get("placeholder", default=None)
         aria_label: str | None = element.get("aria-label", default=None)
+        value: str | None = element.get("value", default=None)
         label: HtmlElement | None = element.label
 
         details = {}
@@ -376,6 +377,8 @@ def get_actions_from_element(
             details["placeholder"] = placeholder
         if aria_label is not None:
             details["aria-label"] = aria_label
+        if value is not None:
+            details["value"] = value
         if label is not None:
             details["label"] = label.text_content()
 
