@@ -36,7 +36,9 @@ class Element:
         if self.details is None:
             return ""
 
-        return ", ".join([f"{k}='{v}'" for k, v in self.details.items()])
+        return ", ".join(
+            [f"{k}='{v}'" for k, v in self.details.items() if v is not None or v != ""]
+        )
 
     def getrelevancy(self) -> float:
         """Get the relevance score of the element.
@@ -85,7 +87,8 @@ class Element:
             if self.relevance is None
             else f" relevancy={self.getrelevancy()} relevance={{{self.relevance}}}"
         )
-        return f"xpath='{self.xpath}'{relevance}{details} content='{self.content}'"
+        content = "" if self.content is None else f" content='{self.content}'"
+        return f"xpath='{self.xpath}'{relevance}{details}{content}"
 
     def __repr__(self) -> str:
         """Get the representation of the element in a string format `xpath='...',
@@ -120,10 +123,48 @@ class ActionElement(Element):
         if self.id < 0:
             raise ValueError("Element ID not set")
 
-        if self.details is None:
-            return f"[{self.id}] {self.type} '{self.content}'"
+        if self.type == "INPUT":
+            label = self.getinputlabel()
+            label = "" if label is None else f" '{label}'"
 
-        return f"[{self.id}] {self.type} '{self.content}' ({self.getdetails()})"
+            value = self.getinputvalue()
+            value = "" if value is None or value == "" else f" (value='{value}')"
+
+            return f"[{self.id}] {self.type}{label}{value}"
+        else:
+            content = (
+                ""
+                if self.content is None or self.content == ""
+                else f" '{self.content}'"
+            )
+
+            if self.details is None:
+                return f"[{self.id}] {self.type}{content}"
+
+            return f"[{self.id}] {self.type}{content} ({self.getdetails()})"
+
+    def getinputvalue(self) -> str | None:
+        # try to use the value attribute if available, otherwise use the content
+        return (
+            self.details["value"]
+            if self.details is not None and self.details.get("value", None) is not None
+            else self.content
+        )
+
+    def getinputlabel(self) -> str | None:
+        # try to use the label attribute if available, otherwise try to use the aria-label
+        placeholder = (
+            self.details.get("placeholder", None) if self.details is not None else None
+        )
+
+        if placeholder is not None:
+            return placeholder
+
+        aria_label = (
+            self.details.get("aria-label", None) if self.details is not None else None
+        )
+
+        return aria_label
 
     def getrepr(self) -> str:
         """Get the representation of the action element in a string format `id=0,
