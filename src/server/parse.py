@@ -22,7 +22,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
         data (WebpageData): Webpage data to parse
     """
 
-    log.info("")
+    log.info(f"Parsing webpage data from `{data.url}`...")
 
     html = b64decode(data.htmlBase64).decode("utf-8")
 
@@ -46,7 +46,6 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     )
 
 
-@log_func()
 def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
     """Extract plain text and markdown from HTML using trafilatura.
 
@@ -61,16 +60,18 @@ def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
 
     if content:
         log.info(f"Extracted content in plain text [{len(content)} chars]")
-        log.debug(f"Extracted content: \n```\n{content[:500]}\n```")
+        log.debug(f"Extracted content: \n```\n{content[:100]}...\n```")
     else:
-        log.warning(f"Extracted no content")
+        log.warning(f"Extracted no content from html [{len(html)} bytes]")
         return None, None
 
     content_markdown = extract(html, include_links=True, url=url)
 
     if content_markdown:
         log.info(f"Extracted content in markdown [{len(content_markdown)} chars]")
-        log.debug(f"Extracted content: \n```\n{content_markdown[:500]}\n```")
+        log.debug(f"Extracted content: \n```\n{content_markdown[:100]}...\n```")
+
+    log.success(f"Extracted {len(content)} chars of plain text from `{url}`")
 
     return content, content_markdown
 
@@ -170,7 +171,6 @@ tree_drop_attributes = [
 ]
 
 
-@log_func()
 def extract_html(
     html: str, url: str
 ) -> tuple[HtmlElement, _ElementTree, str | None, list[ActionElement]]:
@@ -237,7 +237,7 @@ def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement
             )
         except ExpressionError as e:
             # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            log.info(f"Skipped selector `{selector}`, {e}")
+            log.debug(f"Skipped selector `{selector}`, {e}")
 
     log.info(f"Extracted LINK elements [{len(links)} elements]")
 
@@ -286,7 +286,7 @@ def clean_html(
         elements = root.xpath(f"//*[{attr}]")
         for e in elements:
             e.drop_tree()
-        log.info(f"drop_tree {len(elements)} elements with `{attr}`")
+        log.debug(f"drop_tree {len(elements)} elements with `{attr}`")
 
     # remove comments
     for e in root.xpath("//comment()"):
@@ -326,7 +326,7 @@ def clean_html(
         elements = root.xpath(f"//{tag}")
         for e in elements:
             e.drop_tree()
-        log.info(f"drop_tree {len(elements)} <{tag}> tags")
+        log.debug(f"drop_tree {len(elements)} <{tag}> tags")
 
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
@@ -335,7 +335,7 @@ def clean_html(
         for e in elements:
             e.tail = " " + e.tail if e.tail is not None else " "
             e.drop_tag()
-        log.info(f"drop_tag {len(elements)} <{tag}> tags")
+        log.debug(f"drop_tag {len(elements)} <{tag}> tags")
 
     # remove attributes from all elements
     for e in root.iter():  # type: ignore
@@ -435,10 +435,8 @@ def get_actions_from_element(
             )
         )
 
-    log.info(f"Created ActionElements [{len(actions)} actions]")
-    log.debug(
-        f"Created ActionElements: \n```\n{pformat(actions[:3])}\n{pformat(actions[-3:])}\n```"
-    )
+    log.info(f"Created {len(actions)} ActionElements")
+    log.debug(f"Created ActionElements: \n```\n{pformat(actions)}\n```")
 
     return actions
 
