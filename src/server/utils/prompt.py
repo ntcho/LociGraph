@@ -107,7 +107,9 @@ def generate_extract_prompt(
         target (RelationQuery): The query of relations to extract.
     """
 
-    log.info(f"Generating prompt (title='{title}', len(elements)={len(elements)}, query={str(query)})")
+    log.info(
+        f"Generating prompt (title='{title}', len(elements)={len(elements)}, query={str(query)})"
+    )
 
     if len(elements) == 0:
         raise RuntimeError("No elements provided.")
@@ -115,7 +117,9 @@ def generate_extract_prompt(
     avg_relevancy = sum([e.getrelevancy() for e in elements]) / len(elements)
 
     content_elements = [
-        e.content for e in elements if e.getrelevancy() >= avg_relevancy
+        e.content
+        for e in elements
+        if e.getrelevancy() >= avg_relevancy and e.content is not None
     ]  # filter elements with above average relevancy
 
     content = "\n\n".join(
@@ -139,7 +143,7 @@ def generate_extract_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -232,7 +236,7 @@ def generate_evaluate_prompt(
     """
 
     log.info(f"Generating prompt (query={str(query)}, len(results)={len(results)})")
-    
+
     relations = "\n".join(
         [f"- {str(r)}" for r in results[:EVALUATE_RELATION_LIMIT]]
     )  # limit the number of relations to evaluate
@@ -248,7 +252,7 @@ def generate_evaluate_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -289,7 +293,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
     except Exception as e:
         log.warning("Failed to parse the evaluation response.")
         log.exception(e)
-    
+
     return answer_stop, relations
 
 
@@ -359,7 +363,9 @@ def generate_act_prompt(
         extraction_result (ExtractionEvent): The extraction result to generate the prompt from.
     """
 
-    log.info(f"Generating prompt (url='{url}', title='{title}', len(actions)={len(actions)}, query={str(query)})")
+    log.info(
+        f"Generating prompt (url='{url}', title='{title}', len(actions)={len(actions)}, query={str(query)})"
+    )
 
     if len(actions) == 0:
         raise RuntimeError("No action elements provided.")
@@ -394,7 +400,7 @@ def generate_act_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]["content"]}\n```")
+    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -413,7 +419,10 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
     log.info(f"Parsing response (len(response)={len(response)})")
     log.debug(f"Parsing response:\n```\n{response}\n```")
 
-    match = re.fullmatch(r"(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response)
+    # find last matching action in the response
+    match = re.search(
+        r"(?:[\w\W]*)(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response
+    )
 
     if not match:
         log.error("The response didn't match the expected format.")
@@ -423,7 +432,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
 
     try:
         action_type, id, text = match.groups()
-        
+
         # Find the action element with the given id found in the response
         action_element = list(filter(lambda e: e.id == int(id), actions))
     except Exception as e:
@@ -436,5 +445,5 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
 
     if len(action_element) > 1:
         raise RuntimeError(f"Multiple action elements with id {id} found.")
-    
+
     return Action(type=action_type, element=action_element[0], value=text)  # type: ignore
