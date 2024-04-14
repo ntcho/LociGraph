@@ -373,13 +373,13 @@ def get_actions_from_element(
 
         details = {}
 
-        if placeholder is not None:
+        if placeholder is not None and placeholder != "":
             details["placeholder"] = placeholder
-        if aria_label is not None:
+        if aria_label is not None and aria_label != "":
             details["aria-label"] = aria_label
-        if value is not None:
+        if value is not None and value != "":
             details["value"] = value
-        if label is not None:
+        if label is not None and label.text_content() != "":
             details["label"] = label.text_content()
 
         actions.append(
@@ -422,7 +422,7 @@ def get_actions_from_element(
 
         details = {}
 
-        if href is not None:
+        if href is not None and href != "" and href != "#":
             details["href"] = href
 
         actions.append(
