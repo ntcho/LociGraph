@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 from math import prod
+from re import sub
 
 from uuid_extensions import uuid7str
 from lxml.html import HtmlElement
@@ -36,8 +37,16 @@ class Element:
         if self.details is None:
             return ""
 
+        details = self.details
+
+        if details.get("href", None) is not None:
+            href = details["href"]
+            href = sub(r"https?:\/\/", "", href)  # remove starting https:// or http://
+            href = sub(r"\?.+?$", "?...", href)  # remove query parameters
+            details["href"] = href
+
         return ", ".join(
-            [f"{k}='{v}'" for k, v in self.details.items() if v is not None or v != ""]
+            [f"{k}='{v}'" for k, v in details.items() if v is not None or v != ""]
         )
 
     def getrelevancy(self) -> float:
