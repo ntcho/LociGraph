@@ -2,6 +2,7 @@ from utils.logging import log, log_func
 
 
 import requests
+from json import dumps
 
 from litellm import completion
 
@@ -50,11 +51,13 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
             f"Extracting relations with mREBEL model (len(elements)={len(elements)})"
         )
 
+        # all text content of the relevant elements
+        content = "\n".join([e.content for e in elements if e.content is not None])
+
         # send a POST request to the app_extract endpoint
         response = requests.post(
             "http://localhost:8001/extract/",
-            # send all text content of the relevant elements
-            data=("\n".join([e.content for e in elements])),
+            data=dumps(content),  # serialize content to JSON
         )
 
         if response.ok:
