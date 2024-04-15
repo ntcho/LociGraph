@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal, Optional
 from math import prod
 
@@ -93,6 +94,9 @@ class Element:
         return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
 
 
+type ActionElementType = Literal["LINK", "BUTTON", "INPUT"]
+
+
 @dataclass
 class ActionElement(Element):
     """Class that represents an interactive element on a webpage.
@@ -112,7 +116,7 @@ class ActionElement(Element):
     """
 
     id: int = -1
-    type: Literal["LINK", "BUTTON", "INPUT"] = "LINK"
+    type: ActionElementType = "LINK"
 
     def __str__(self) -> str:
         if self.id < 0:
@@ -195,6 +199,9 @@ class ActionElement(Element):
         return f"<dtos.{self.__class__.__name__} {self.getrepr()}>"
 
 
+type ActionType = Literal["CLICK", "TYPE", "TYPESUBMIT"]
+
+
 @dataclass
 class Action:
     """Class that represents an action to be taken on a webpage.
@@ -206,7 +213,7 @@ class Action:
     """
 
     element: ActionElement
-    type: Literal["CLICK", "TYPE", "TYPESUBMIT"]
+    type: ActionType
     value: str | None  # for TYPE and TYPESUBMIT
 
     def getresponseobject(self):

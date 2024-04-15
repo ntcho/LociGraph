@@ -10,7 +10,7 @@ from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
 from tinycss2 import parse_stylesheet, serialize
 
-from dtos import ActionElement, WebpageData, ParsedWebpageData
+from dtos import ActionElement, ActionElementType, WebpageData, ParsedWebpageData
 
 
 @log_func()
@@ -105,8 +105,47 @@ input_button_selector = " or ".join(
     ]
 )
 
+# html tags for elements that don't contain text content
+noise_tags = [
+    "head",
+    "title",
+    "code",
+    "script",
+    "noscript",
+    "style",
+    "link",
+    "meta",
+    "iframe",
+    "base",
+    "svg",
+    "path",
+    "br",
+    "wbr",
+]
+
+# html element attributes that hide elements
+noise_attributes = [
+    "contains(@class, 'hidden')",
+    "contains(@class, 'invisible')",
+    "contains(@class, 'none')",
+    "contains(@style, 'display: none')",
+    "contains(@style, 'visibility: hidden')",
+]
+
+# CSS styles that hide elements
+noise_styles: list[tuple[str, str]] = [
+    # Adapted from https://www.sitepoint.com/hide-elements-in-css
+    ("display", "none"),
+    ("visibility", "hidden"),
+    ("opacity", "0"),
+    ("opacity", "0%"),
+    ("transform", "scale(0)"),
+    ("height", "0"),
+    ("width", "0"),
+]
+
 # html tags for elements that are purely cosmetic and have no semantic meaning
-drop_tags_tags = [
+cosmetic_tags = [
     "a",
     "button",
     "abbr",
@@ -143,45 +182,6 @@ drop_tags_tags = [
     "ins",
 ]
 
-# html tags for elements that don't contain text content
-drop_tree_tags = [
-    "head",
-    "title",
-    "code",
-    "script",
-    "noscript",
-    "style",
-    "link",
-    "meta",
-    "iframe",
-    "base",
-    "svg",
-    "path",
-    "br",
-    "wbr",
-]
-
-# html element attributes that hide elements
-drop_tree_attributes = [
-    "contains(@class, 'hidden')",
-    "contains(@class, 'invisible')",
-    "contains(@class, 'none')",
-    "contains(@style, 'display: none')",
-    "contains(@style, 'visibility: hidden')",
-]
-
-# CSS styles that hide elements
-drop_tree_styles: list[tuple[str, str]] = [
-    # Adapted from https://www.sitepoint.com/hide-elements-in-css
-    ("display", "none"),
-    ("visibility", "hidden"),
-    ("opacity", "0"),
-    ("opacity", "0%"),
-    ("transform", "scale(0)"),
-    ("height", "0"),
-    ("width", "0"),
-]
-
 # all parsed CSS rules
 all_rules = None
 
@@ -216,18 +216,101 @@ def extract_html(
     global all_rules
     all_rules = parse_css_to_ast(root.xpath("//style"))
 
-    root, tree = clean_html(root, tree)
+    root, tree = flag_noise_elements(root, tree)
 
-    actions = extract_actions(root, tree)
+    root, tree = flag_action_elements(root, tree)
+
+    root, tree = remove_noise_elements(root, tree)
+
+    actions = get_action_elements(root, tree)
 
     root, tree = simplify_html(root, tree)
 
     return root, tree, title, actions
 
 
+FLAG_ATTRIBUTE_TYPE = "locigraph-type"
+FLAG_VALUE_NOISE = "NOISE"
+FLAG_ATTRIBUTE_XPATH = "locigraph-xpath"
+
+
 @log_func()
-def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement]:
-    """Extract all interactable elements from the HTML.
+def flag_noise_elements(
+    root: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Remove non-semantic elements from the HTML.
+
+    Args:
+        root (HtmlElement): Root element of the HTML
+        tree (_ElementTree): Element tree of the HTML
+    """
+
+    # remove comments
+    for element in root.xpath("//comment()"):
+        try:
+            element.drop_tree()
+        except Exception as element:
+            log.trace(f"skipped drop_tree: {element}")
+
+    # flag elements that are not visible with element class as noise
+    # e.g. <div style="display: none">...</div>
+    for attr in noise_attributes:
+        elements = root.xpath(f"//*[{attr}]")
+
+        for element in elements:
+            # flag the element and all its children as noise
+            for child in element.iter():
+                child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
+
+        if len(elements) > 0:
+            log.trace(f"flagged {len(elements)} elements with attr=`{attr}`")
+
+    # flag elements that are not visible via CSS style as noise
+    # e.g. <div class="hidden">...</div> & .hidden { display: none; }
+    selectors = []
+
+    for property, value in noise_styles:
+        selectors.extend(get_selectors_from_rule(property, value))
+
+    for selector in selectors:
+        try:
+            elements = root.cssselect(selector)
+
+            for element in elements:
+                # flag the element and all its children as noise
+                for child in element.iter():
+                    child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
+
+            if len(elements) > 0:
+                log.trace(
+                    f"flagged {len(elements)} elements with selector=`{selector}`"
+                )
+
+        except Exception as element:
+            # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
+            log.trace(f"skipped selector `{selector}`, {element}")
+
+    # remove elements that doesn't contain text content
+    # e.g. <style>...</style> -> ""
+    for tag in noise_tags:
+        elements = root.xpath(f"//{tag}")
+
+        for element in elements:
+            # flag the element and all its children as noise
+            for child in element.iter():
+                child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
+
+        if len(elements) > 0:
+            log.trace(f"flagged {len(elements)} <{tag}> tags")
+
+    return root, tree
+
+
+@log_func()
+def flag_action_elements(
+    root: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Find all interactable elements in the HTML and flag them as actions.
 
     Args:
         root (HtmlElement): Root element of the HTML
@@ -285,132 +368,47 @@ def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement
     # * Extract SELECT elements
     # dropdowns.extend(root.xpath("//select")) # TODO: add support for <select> tags
 
-    return get_actions_from_element(tree, links, buttons, inputs)
+    action_elements: dict[ActionElementType, list[HtmlElement]] = {
+        "INPUT": inputs,
+        "BUTTON": buttons,
+        "LINK": links,
+    }
+
+    # add original xpath to elements to preserve after cleaning
+    for type, elements in action_elements.items():
+        for e in elements:
+            if e.get(FLAG_ATTRIBUTE_TYPE, None) != FLAG_VALUE_NOISE:
+                # flag the element as an action if the element haven't been flagged as noise
+                # e.g. <div locigraph-type="LINK" locigraph-xpath="...">
+                e.set(FLAG_ATTRIBUTE_TYPE, type)
+                e.set(FLAG_ATTRIBUTE_XPATH, tree.getpath(e))
+
+    return root, tree
 
 
 @log_func()
-def clean_html(
+def remove_noise_elements(
     root: HtmlElement, tree: _ElementTree
 ) -> tuple[HtmlElement, _ElementTree]:
-    """Remove non-semantic elements from the HTML.
+    """Remove elements that are flagged as noise from the HTML.
 
     Args:
         root (HtmlElement): Root element of the HTML
         tree (_ElementTree): Element tree of the HTML
     """
 
-    # remove elements that are not visible with element class
-    # e.g. <div style="display: none">...</div> -> ""
-    for attr in drop_tree_attributes:
-        elements = root.xpath(f"//*[{attr}]")
-        for e in elements:
-            e.drop_tree()
-
-        if len(elements) > 0:
-            log.trace(f"drop_tree {len(elements)} elements with attr=`{attr}`")
-
-    # remove elements that are not visible via CSS style
-    # e.g. <div class="hidden">...</div> & .hidden { display: none; } -> ""
-    selectors = []
-
-    for property, value in drop_tree_styles:
-        selectors.extend(get_selectors_from_rule(property, value))
-
-    for selector in selectors:
+    # remove elements that are flagged as noise
+    for element in root.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='{FLAG_VALUE_NOISE}']"):
         try:
-            elements = root.cssselect(selector)
-            for e in elements:
-                e.drop_tree()
-
-            if len(elements) > 0:
-                log.trace(
-                    f"drop_tree {len(elements)} elements with selector=`{selector}`"
-                )
-
-        except Exception as e:
-            # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            log.trace(f"skipped selector `{selector}`, {e}")
-
-    # remove comments
-    for e in root.xpath("//comment()"):
-        try:
-            e.drop_tree()
-        except AssertionError:
-            pass
-
-    # remove empty elements
-    while True:
-        elements = root.xpath("//*[not(normalize-space())]")
-
-        if len(elements) == 0:
-            break
-
-        for e in elements:
-            try:
-                e.tail = " " + e.tail if e.tail is not None else " "
-                e.drop_tree()
-            except AssertionError:
-                pass
-
-    # remove elements that doesn't contain text content
-    # e.g. <style>...</style> -> ""
-    for tag in drop_tree_tags:
-        elements = root.xpath(f"//{tag}")
-        for e in elements:
-            e.drop_tree()
-
-        if len(elements) > 0:
-            log.trace(f"drop_tree {len(elements)} <{tag}> tags")
-
-    return root, tree
-
-
-def simplify_html(
-    root: HtmlElement, tree: _ElementTree
-) -> tuple[HtmlElement, _ElementTree]:
-    """Simplify the HTML by removing unnecessary tags and attributes.
-
-    Args:
-        root (HtmlElement): Root element of the HTML
-        tree (_ElementTree): Element tree of the HTML
-    """
-
-    # remove tags from elements that contain only one child element
-    while True:
-        elements = root.xpath("//*[count(*) = 1]")
-
-        if len(elements) == 0:
-            break
-
-        for e in elements:
-            e.tail = " " + e.tail if e.tail is not None else " "
-            e.drop_tag()
-
-    # remove tags that are purely cosmetic
-    # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
-    for tag in drop_tags_tags:
-        elements = root.xpath(f"//{tag}")
-        for e in elements:
-            e.tail = " " + e.tail if e.tail is not None else " "
-            e.drop_tag()
-
-        if len(elements) > 0:
-            log.trace(f"drop_tag {len(elements)} <{tag}> tags")
-
-    # remove attributes from all elements
-    for e in root.iter():  # type: ignore
-        e.attrib.clear()
+            element.drop_tree()
+        except Exception as element:
+            log.trace(f"skipped drop_tree: {element}")
 
     return root, tree
 
 
 @log_func()
-def get_actions_from_element(
-    tree: _ElementTree,
-    links: list[HtmlElement],
-    buttons: list[HtmlElement],
-    inputs: list[HtmlElement],
-) -> list[ActionElement]:
+def get_action_elements(root: HtmlElement, tree: _ElementTree) -> list[ActionElement]:
     """Create ActionElement objects from the extracted elements
 
     Args:
@@ -422,10 +420,20 @@ def get_actions_from_element(
         list[ActionElement]: List of ActionElement objects
     """
 
+    inputs = root.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='INPUT']")
+    buttons = root.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='BUTTON']")
+    links = root.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='LINK']")
+
     actions: list[ActionElement] = []
 
     # 1st priority: INPUT actions
     for element in inputs:
+        xpath = element.get(FLAG_ATTRIBUTE_XPATH, None)  # retrieve original xpath
+
+        if xpath is None:
+            log.warning(f"Skipping action element without xpath: {element}")
+            continue
+
         placeholder: str | None = element.get("placeholder", default=None)
         aria_label: str | None = element.get("aria-label", default=None)
         value: str | None = element.get("value", default=None)
@@ -444,8 +452,8 @@ def get_actions_from_element(
 
         actions.append(
             ActionElement(
-                xpath=tree.getpath(element),
-                html_element=element,
+                xpath=xpath,
+                html_element=element.text_content(),
                 type="INPUT",
                 content=element.get("value", default=None),
                 details=(details if len(details) > 0 else None),
@@ -454,6 +462,12 @@ def get_actions_from_element(
 
     # 2nd priority: BUTTON actions
     for element in buttons:
+        xpath = element.get(FLAG_ATTRIBUTE_XPATH, None)  # retrieve original xpath
+
+        if xpath is None:
+            log.warning(f"Skipping action element without xpath: {element}")
+            continue
+
         content = get_text_from_element(element)
 
         if len(content) == 0:
@@ -461,7 +475,7 @@ def get_actions_from_element(
 
         actions.append(
             ActionElement(
-                xpath=tree.getpath(element),
+                xpath=xpath,
                 html_element=element,
                 type="BUTTON",
                 content=content,
@@ -471,6 +485,12 @@ def get_actions_from_element(
 
     # 3rd priority: LINK actions
     for element in links:
+        xpath = element.get(FLAG_ATTRIBUTE_XPATH, None)  # retrieve original xpath
+
+        if xpath is None:
+            log.warning(f"Skipping action element without xpath: {element}")
+            continue
+
         content = get_text_from_element(element)
 
         if len(content) == 0:
@@ -485,7 +505,7 @@ def get_actions_from_element(
 
         actions.append(
             ActionElement(
-                xpath=tree.getpath(element),
+                xpath=xpath,
                 html_element=element,
                 type="LINK",
                 content=content,
@@ -497,6 +517,44 @@ def get_actions_from_element(
     log.debug(f"Created ActionElements: \n```\n{pformat(actions)}\n```")
 
     return actions
+
+
+def simplify_html(
+    root: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Simplify the HTML by removing unnecessary tags and attributes.
+
+    Args:
+        root (HtmlElement): Root element of the HTML
+        tree (_ElementTree): Element tree of the HTML
+    """
+
+    # replace elements with no text content with a single space
+    while True:
+        elements = root.xpath("//*[not(normalize-space())]")
+
+        # repeat until no more elements are found
+        if len(elements) == 0 or drop_tag_elements(elements) is False:
+            break
+
+    # remove tags from elements that contain only one child element
+    while True:
+        elements = root.xpath("//*[count(*) = 1]")
+
+        # repeat until no more elements are found
+        if len(elements) == 0 or drop_tag_elements(elements) is False:
+            break
+
+    # remove tags that are purely cosmetic
+    # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
+    for tag in cosmetic_tags:
+        drop_tag_elements(root.xpath(f"//{tag}"))
+
+    # remove attributes from all elements
+    for e in root.iter():  # type: ignore
+        e.attrib.clear()
+
+    return root, tree
 
 
 def get_text_from_element(element: HtmlElement) -> str:
@@ -551,7 +609,6 @@ def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
     return all_rules
 
 
-@log_func()
 def get_selectors_from_rule(property: str, value: str) -> list[str]:
     """Get all CSS selectors that contain a CSS rule `{ property: value; }`
     from given `<style>` elements.
@@ -603,3 +660,27 @@ def get_selectors_from_rule(property: str, value: str) -> list[str]:
                             break
 
     return selectors
+
+
+def drop_tag_elements(elements) -> bool:
+    """Drop the tag from the given elements and append a space to the tail.
+
+    Args:
+        elements (list[HtmlElement]): List of HTML elements to remove the tag from
+
+    Returns:
+        bool: True if the tag was dropped successfully, False otherwise
+    """
+
+    for element in elements:
+        try:
+            element.tail = " " + element.tail if element.tail is not None else " "
+            element.drop_tag()
+        except Exception as e:
+            log.trace(f"skipped drop_tag on element {element}: {e}")
+            return False
+
+    if len(elements) > 0:
+        log.trace(f"drop_tag {len(elements)} elements")
+
+    return True
