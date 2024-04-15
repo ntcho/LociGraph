@@ -574,14 +574,10 @@ def get_text_from_element(element: HtmlElement) -> str:
     for child in element.iter(None):
         child.tail = " | " + child.tail if child.tail is not None else " | "
 
-    # remove extra spaces
-    content = sub(r"\s+", " ", element.text_content())
-
-    # remove repeated `|` characters
-    content = sub(r"(?: \|)+", " |", content).strip()
-
-    # remove trailing `|`
-    content = sub(r"\|$", "", content)
+    content = sub(r"\s+", " ", element.text_content())  # remove extra spaces
+    content = sub(r"(?: \|)+", " |", content).strip()  # remove repeated `|` characters
+    content = sub(r"\|$", "", content)  # remove trailing `|`
+    content = sub(r"^\|", "", content)  # remove leading `|`
 
     return content.strip()
 
