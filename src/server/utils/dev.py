@@ -19,14 +19,17 @@ def read_file_to_base64(file_path: str) -> str:
 
 
 def read_mock_response(file_path: str) -> str | None:
-    try:
-        if getenv("MOCK_RESPONSE", "false") == "true":
+    # check if the MOCK_RESPONSE environment variable is set to true
+    if getenv("MOCK_RESPONSE", "false") == "true":
+        try:
             from utils.file import read_txt
 
             return read_txt(file_path)
-        return None
-    except FileNotFoundError:
-        return None
+
+        except FileNotFoundError:
+            return None
+
+    return None
 
 
 def get_timestamp() -> str:
