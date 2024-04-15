@@ -8,7 +8,6 @@ from dtos import Action, ActionElement, Element, Relation, RelationQuery
 
 EXTRACT_ELEMENT_LIMIT = 25  # maximum number of elements to extract relations from
 EVALUATE_RELATION_LIMIT = 50  # maximum number of relations to evaluate
-ACT_ELEMENT_LIMIT = 10  # maximum number of actions to choose from
 
 
 # Prompt to extract relation JSON from text
@@ -388,28 +387,7 @@ def generate_act_prompt(
     if len(actions) == 0:
         raise RuntimeError("No action elements provided.")
 
-    avg_relevancy = sum([e.getrelevancy() for e in actions]) / len(actions)
-
-    action_elements = [
-        e for e in actions if e.getrelevancy() >= avg_relevancy
-    ]  # filter action elements with above average relevancy
-
-    if len(actions) == len(action_elements):
-        # all action elements are equally relevant, use all elements
-        log.warning(
-            f"Couldn't find any relatively relevant action elements. Using all {len(actions)} action elements."
-        )
-
-        action_list = "\n".join([f"- {str(a)}" for a in action_elements])
-    else:
-        if len(action_elements) > ACT_ELEMENT_LIMIT:
-            log.warning(
-                f"Number of actions exceeded limit, using first {ACT_ELEMENT_LIMIT} actions out of {len(action_elements)}."
-            )
-
-        action_list = "\n".join(
-            [f"- {str(a)}" for a in action_elements[:ACT_ELEMENT_LIMIT]]
-        )  # only prompt the top K relevant actions
+    action_list = "\n".join([f"- {str(a)}" for a in actions])
 
     prompt = act_prompt_template
     prompt = prompt.replace("<url>", url)
