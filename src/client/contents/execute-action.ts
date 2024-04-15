@@ -77,7 +77,16 @@ const executeAction = (req: RequestBody): ResponseBody => {
   try {
     const element = getElementByXpath(action.element.xpath)
 
-    if (confirm(`Execute action: ${action.type} [${action.element.xpath}] ${action.value ? "'" + action.value + "'" : ""}`)) {
+    if (!element) {
+      console.error("Element not found", action.element.xpath)
+      return { error: `Element not found with xpath=${action.element.xpath}` }
+    }
+
+    const actionValue = action.value ? " '" + action.value + "'" : ""
+    const actionString = `${action.type} [${action.element.xpath}]${actionValue}`
+
+    // confirm before executing action if continuous mode is off
+    if (req.continuous || confirm(`Confirm executing action \`${actionString}\`?`)) {
       switch (action.type) {
         case "CLICK":
           clickElement(element)
@@ -92,9 +101,12 @@ const executeAction = (req: RequestBody): ResponseBody => {
           console.error("Unsupported action type", action.type)
           return { error: "Unsupported action type" }
       }
+
+      console.info(`Executed action \`${actionString}\``)
+
       return { error: null }
     } else {
-      console.info("Action cancelled")
+      console.info(`Cancelled action \`${actionString}\``)
       return { error: "Action cancelled" }
     }
 
