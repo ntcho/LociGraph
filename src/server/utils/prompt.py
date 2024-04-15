@@ -328,8 +328,8 @@ Actions:
 - [3] LINK 'Inbox' (href='/inbox')
 - [4] LINK 'Sent' (href='/sent')
 Objective: Find the value of attribute `date of birth` of entity `Alex`.
-Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for the date of birth of Alex. We can search with the query `date of birth Alex` by typing it in the search mail input. Therefore, I will issue the command `TYPE [2] 'date of birth Alex'`.
-Command: TYPE [2] 'date of birth Alex'
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for emails related to Alex. We can search with the query `Alex` by typing it in the search mail input. Therefore, I will issue the command `TYPE [2] 'Alex'`.
+Command: TYPE [2] 'Alex'
 
 Page URL: https://wikipedia.org/en/Alex
 Page title: `Alex - Wikipedia`
