@@ -12,7 +12,7 @@ EVALUATE_RELATION_LIMIT = 50  # maximum number of relations to evaluate
 
 # Prompt to extract relation JSON from text
 extract_system_prompt = """
-You are tasked to extract all relation triplets from a webpage. The output must be in the format of [entity, attribute, value]. If no relations are found, write `No relations found`.
+You are tasked to extract all relation triplets from a webpage. Imagine you are imitating humans using a web browser to find information, step by step.
 
 The following are some examples:
 
@@ -198,7 +198,7 @@ def parse_extract_response(response: str) -> list[Relation]:
 
 # Prompt to evaluate relation JSON
 evaluate_system_prompt = """
-You are tasked to evaluate relation extraction results for the given query. If you believe the extraction results are correct, write `STOP`. If you believe the extraction results are incorrect, write `CONTINUE`.
+You are tasked to evaluate relation extraction results for the given query. Imagine you are imitating humans using a web browser to achieve an objective, step by step.
 
 The following are some examples:
 
