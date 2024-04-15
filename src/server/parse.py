@@ -106,7 +106,7 @@ input_button_selector = " or ".join(
 )
 
 # html tags for elements that are purely cosmetic and have no semantic meaning
-tag_drop_tags = [
+drop_tags_tags = [
     "a",
     "button",
     "abbr",
@@ -143,8 +143,8 @@ tag_drop_tags = [
     "ins",
 ]
 
-# html tags for elements that are not text content
-tree_drop_tags = [
+# html tags for elements that don't contain text content
+drop_tree_tags = [
     "head",
     "title",
     "code",
@@ -161,14 +161,29 @@ tree_drop_tags = [
     "wbr",
 ]
 
-# html element attributes that are not visible
-tree_drop_attributes = [
+# html element attributes that hide elements
+drop_tree_attributes = [
     "contains(@class, 'hidden')",
     "contains(@class, 'invisible')",
     "contains(@class, 'none')",
     "contains(@style, 'display: none')",
     "contains(@style, 'visibility: hidden')",
 ]
+
+# CSS styles that hide elements
+drop_tree_styles: list[tuple[str, str]] = [
+    # Adapted from https://www.sitepoint.com/hide-elements-in-css
+    ("display", "none"),
+    ("visibility", "hidden"),
+    ("opacity", "0"),
+    ("opacity", "0%"),
+    ("transform", "scale(0)"),
+    ("height", "0"),
+    ("width", "0"),
+]
+
+# all parsed CSS rules
+all_rules = None
 
 
 def extract_html(
@@ -197,9 +212,15 @@ def extract_html(
 
     log.info(f"Parsed title: `{title}`")
 
-    actions = extract_actions(root, tree)
+    # parse CSS rules to AST nodes
+    global all_rules
+    all_rules = parse_css_to_ast(root.xpath("//style"))
 
     root, tree = clean_html(root, tree)
+
+    actions = extract_actions(root, tree)
+
+    root, tree = simplify_html(root, tree)
 
     return root, tree, title, actions
 
@@ -223,21 +244,18 @@ def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement
     inputs: list[HtmlElement] = []
     # dropdowns = [] # TODO: add support for <select> tags
 
-    # all <style> elements containing CSS
-    styles = root.xpath("//style")
-
     # * extract LINK elements
     # all <a> elements with non-empty text content
     links.extend(root.xpath("//a[string-length(text()) > 0]"))
     # all elements with `cursor: pointer` style with non-empty text content
-    for selector in get_selectors_from_rule("cursor", "pointer", styles):
+    for selector in get_selectors_from_rule("cursor", "pointer"):
         try:
             links.extend(
                 [e for e in root.cssselect(selector) if len(e.text_content()) > 0]
             )
-        except ExpressionError as e:
+        except Exception as e:
             # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            log.debug(f"Skipped selector `{selector}`, {e}")
+            log.trace(f"Skipped selector `{selector}`, {e}")
 
     log.info(f"Extracted LINK elements [{len(links)} elements]")
 
@@ -280,13 +298,37 @@ def clean_html(
         tree (_ElementTree): Element tree of the HTML
     """
 
-    # remove elements that are not visible
+    # remove elements that are not visible with element class
     # e.g. <div style="display: none">...</div> -> ""
-    for attr in tree_drop_attributes:
+    for attr in drop_tree_attributes:
         elements = root.xpath(f"//*[{attr}]")
         for e in elements:
             e.drop_tree()
-        log.debug(f"drop_tree {len(elements)} elements with `{attr}`")
+
+        if len(elements) > 0:
+            log.trace(f"drop_tree {len(elements)} elements with attr=`{attr}`")
+
+    # remove elements that are not visible via CSS style
+    # e.g. <div class="hidden">...</div> & .hidden { display: none; } -> ""
+    selectors = []
+
+    for property, value in drop_tree_styles:
+        selectors.extend(get_selectors_from_rule(property, value))
+
+    for selector in selectors:
+        try:
+            elements = root.cssselect(selector)
+            for e in elements:
+                e.drop_tree()
+
+            if len(elements) > 0:
+                log.trace(
+                    f"drop_tree {len(elements)} elements with selector=`{selector}`"
+                )
+
+        except Exception as e:
+            # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
+            log.trace(f"skipped selector `{selector}`, {e}")
 
     # remove comments
     for e in root.xpath("//comment()"):
@@ -309,6 +351,29 @@ def clean_html(
             except AssertionError:
                 pass
 
+    # remove elements that doesn't contain text content
+    # e.g. <style>...</style> -> ""
+    for tag in drop_tree_tags:
+        elements = root.xpath(f"//{tag}")
+        for e in elements:
+            e.drop_tree()
+
+        if len(elements) > 0:
+            log.trace(f"drop_tree {len(elements)} <{tag}> tags")
+
+    return root, tree
+
+
+def simplify_html(
+    root: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Simplify the HTML by removing unnecessary tags and attributes.
+
+    Args:
+        root (HtmlElement): Root element of the HTML
+        tree (_ElementTree): Element tree of the HTML
+    """
+
     # remove tags from elements that contain only one child element
     while True:
         elements = root.xpath("//*[count(*) = 1]")
@@ -320,22 +385,16 @@ def clean_html(
             e.tail = " " + e.tail if e.tail is not None else " "
             e.drop_tag()
 
-    # remove elements that doesn't contain content
-    # e.g. <style>...</style> -> ""
-    for tag in tree_drop_tags:
-        elements = root.xpath(f"//{tag}")
-        for e in elements:
-            e.drop_tree()
-        log.debug(f"drop_tree {len(elements)} <{tag}> tags")
-
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
-    for tag in tag_drop_tags:
+    for tag in drop_tags_tags:
         elements = root.xpath(f"//{tag}")
         for e in elements:
             e.tail = " " + e.tail if e.tail is not None else " "
             e.drop_tag()
-        log.debug(f"drop_tag {len(elements)} <{tag}> tags")
+
+        if len(elements) > 0:
+            log.trace(f"drop_tag {len(elements)} <{tag}> tags")
 
     # remove attributes from all elements
     for e in root.iter():  # type: ignore
@@ -394,8 +453,7 @@ def get_actions_from_element(
 
     # 2nd priority: BUTTON actions
     for element in buttons:
-        content = element.text_content().replace("\n", " ").strip()
-        content = sub(r"\s+", " ", content)  # remove extra spaces
+        content = get_text_from_element(element)
 
         if len(content) == 0:
             continue  # skip empty buttons
@@ -412,8 +470,7 @@ def get_actions_from_element(
 
     # 3rd priority: LINK actions
     for element in links:
-        content = element.text_content().replace("\n", " ").strip()
-        content = sub(r"\s+", " ", content)  # remove extra spaces
+        content = get_text_from_element(element)
 
         if len(content) == 0:
             continue  # skip empty links
@@ -441,20 +498,43 @@ def get_actions_from_element(
     return actions
 
 
-@log_func()
-def get_selectors_from_rule(
-    property: str, value: str, styleHtmlElements: list[HtmlElement]
-) -> list[str]:
-    """Get all CSS selectors that contain a CSS rule `{ property: value; }`
-    from given `<style>` elements.
+def get_text_from_element(element: HtmlElement) -> str:
+    """Get the text content of an HTML element.
+
+    Note:
+        This function will add `|` between text content of nested elements.
 
     Args:
-        property (str): CSS property name
-        value (str): CSS property value
+        element (HtmlElement): HTML element
+
+    Returns:
+        str: Text content of the HTML element
+    """
+
+    # add `|` between text content of nested elements
+    for child in element.iter(None):
+        child.tail = " | " + child.tail if child.tail is not None else " | "
+
+    # remove extra spaces
+    content = sub(r"\s+", " ", element.text_content())
+
+    # remove repeated `|` characters
+    content = sub(r"(?: \|)+", " |", content).strip()
+
+    # remove trailing `|`
+    content = sub(r"\|$", "", content)
+
+    return content.strip()
+
+
+def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
+    """Parse the CSS code in the <style> elements into tinycss2 AST nodes.
+
+    Args:
         styleHtmlElements (list[HtmlElement]): List of <style> elements
 
     Returns:
-        list[str]: List of CSS selectors that contain the given CSS rule"""
+        list: List of tinycss2 AST nodes"""
 
     # extract CSS code in the <style> tag
     all_css = [e.text_content() for e in styleHtmlElements]
@@ -467,6 +547,28 @@ def get_selectors_from_rule(
         for rules in parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
     ]
 
+    return all_rules
+
+
+@log_func()
+def get_selectors_from_rule(property: str, value: str) -> list[str]:
+    """Get all CSS selectors that contain a CSS rule `{ property: value; }`
+    from given `<style>` elements.
+
+    Args:
+        property (str): CSS property name
+        value (str): CSS property value
+        styleHtmlElements (list[HtmlElement]): List of <style> elements
+
+    Returns:
+        list[str]: List of CSS selectors that contain the given CSS rule"""
+
+    global all_rules
+
+    if all_rules is None:
+        log.warning("No CSS rules found. Skipping selector extraction.")
+        return []
+
     # selector for rules that contain `property: value;`
     selectors = []
 
@@ -475,20 +577,28 @@ def get_selectors_from_rule(
             property_exists = False
             value_exists = False
 
-            for token in rule.content:
+            def get_next_ident_token(tokens, i):
+                while i < len(tokens):
+                    if tokens[i].type == "ident":
+                        return tokens[i]
+                    i += 1
+                return None
+
+            for i, token in enumerate(rule.content):
                 # look for the property and value in ident tokens
                 # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#tinycss2.ast.IdentToken
                 if token.type == "ident":
-                    if token.value == property:
-                        property_exists = True
-                        if value_exists:
-                            break
-                    elif token.value == value:
-                        value_exists = True
-                        if property_exists:
-                            break
+                    if token.lower_value == property:
 
-            if property_exists and value_exists:
-                selectors.append(serialize(rule.prelude))
+                        # check if the next token is the value
+                        next_token = get_next_ident_token(rule.content, i + 1)
+                        if next_token is not None:
+                            if next_token.lower_value == value:
+                                selectors.append(serialize(rule.prelude))
+
+                                log.trace(
+                                    f"Found `{property}: {value}` at rule `{serialize(rule.prelude)}`"
+                                )
+                            break
 
     return selectors
