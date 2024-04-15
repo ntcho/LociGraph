@@ -7,7 +7,7 @@ from dtos import Action, ActionElement, Element, Relation, RelationQuery
 
 
 EXTRACT_ELEMENT_LIMIT = 25  # maximum number of elements to extract relations from
-EVALUATE_RELATION_LIMIT = 25  # maximum number of relations to evaluate
+EVALUATE_RELATION_LIMIT = 50  # maximum number of relations to evaluate
 ACT_ELEMENT_LIMIT = 10  # maximum number of actions to choose from
 
 
@@ -122,9 +122,22 @@ def generate_extract_prompt(
         if e.getrelevancy() >= avg_relevancy and e.content is not None
     ]  # filter elements with above average relevancy
 
-    content = "\n\n".join(
-        content_elements[:EXTRACT_ELEMENT_LIMIT]
-    )  # only prompt the top K relevant elements
+    if len(elements) == len(content_elements):
+        # all elements are equally relevant, use all elements
+        log.warning(
+            f"Couldn't find any relatively relevant content elements. Using all {len(elements)} elements."
+        )
+
+        content = "\n\n".join(content_elements)
+    else:
+        if len(content_elements) > EXTRACT_ELEMENT_LIMIT:
+            log.warning(
+                f"Number of elements exceeded limit, using first {EXTRACT_ELEMENT_LIMIT} elements out of {len(content_elements)}."
+            )
+
+        content = "\n\n".join(
+            content_elements[:EXTRACT_ELEMENT_LIMIT]
+        )  # only prompt the top K relevant elements
 
     # build the prompt content
     prompt = extract_prompt_template
@@ -240,6 +253,11 @@ def generate_evaluate_prompt(
     relations = "\n".join(
         [f"- {str(r)}" for r in results[:EVALUATE_RELATION_LIMIT]]
     )  # limit the number of relations to evaluate
+
+    if len(results) > EVALUATE_RELATION_LIMIT:
+        log.warning(
+            f"Number of relations exceeded limit, using first {EVALUATE_RELATION_LIMIT} relations out of {len(results)}."
+        )
 
     prompt = evaluate_prompt_template
     prompt = prompt.replace("<query>", str(query))
@@ -376,9 +394,22 @@ def generate_act_prompt(
         e for e in actions if e.getrelevancy() >= avg_relevancy
     ]  # filter action elements with above average relevancy
 
-    action_list = "\n".join(
-        [f"- {str(a)}" for a in action_elements[:ACT_ELEMENT_LIMIT]]
-    )  # only prompt the top K relevant actions
+    if len(actions) == len(action_elements):
+        # all action elements are equally relevant, use all elements
+        log.warning(
+            f"Couldn't find any relatively relevant action elements. Using all {len(actions)} action elements."
+        )
+
+        action_list = "\n".join([f"- {str(a)}" for a in action_elements])
+    else:
+        if len(action_elements) > ACT_ELEMENT_LIMIT:
+            log.warning(
+                f"Number of actions exceeded limit, using first {ACT_ELEMENT_LIMIT} actions out of {len(action_elements)}."
+            )
+
+        action_list = "\n".join(
+            [f"- {str(a)}" for a in action_elements[:ACT_ELEMENT_LIMIT]]
+        )  # only prompt the top K relevant actions
 
     prompt = act_prompt_template
     prompt = prompt.replace("<url>", url)
