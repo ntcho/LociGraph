@@ -8,7 +8,6 @@ from pprint import pformat
 from trafilatura import extract
 from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
-from cssselect import ExpressionError
 from tinycss2 import parse_stylesheet, serialize
 
 from dtos import ActionElement, WebpageData, ParsedWebpageData
@@ -54,7 +53,8 @@ def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
         url (str): URL of the webpage
 
     Returns:
-        tuple[str]: Plain text and markdown of the webpage content"""
+        tuple[str]: Plain text and markdown of the webpage content
+    """
 
     content = extract(html)
 
@@ -235,7 +235,8 @@ def extract_actions(root: HtmlElement, tree: _ElementTree) -> list[ActionElement
         styles (list[HtmlElement]): List of <style> elements containing CSS
 
     Returns:
-        list[ActionElement]: List of interactable elements"""
+        list[ActionElement]: List of interactable elements
+    """
 
     ### * Extract all interactable elements from the HTML
 
