@@ -1,6 +1,7 @@
 from utils.logging import log, log_func
 
 
+from litestar import exceptions
 from litellm import completion
 
 from dtos import Action, ActionElement, RelationQuery
@@ -9,6 +10,7 @@ from utils.prompt import generate_act_prompt, parse_act_response
 from utils.catalog import DEFAULT_MODEL
 from utils.file import write_json
 from utils.dev import get_timestamp, read_mock_response
+import utils.error as error
 
 
 @log_func()
@@ -19,7 +21,7 @@ def act(
     title: str | None,
     model_id: str = DEFAULT_MODEL,
     mock_response: str | None = read_mock_response("data/mock_response_act.txt"),
-) -> Action | None:
+) -> Action:
     """Predict the next action to take based on the given actions and query.
 
     Args:
@@ -54,4 +56,8 @@ def act(
         # See more: https://docs.litellm.ai/docs/exception_mapping
         log.error(f"Failed to predict actions. {type(e)}: {e}")
         log.exception(e)
-        return None
+
+        raise exceptions.HTTPException(
+            status_code=500,
+            detail=f"Couldn't predict next action. {error.CHECK_LLM}",
+        )
