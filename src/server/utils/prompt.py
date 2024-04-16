@@ -291,7 +291,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
     answer_continue = "answer: continue" in response.lower()
 
     # check if the response contains either `STOP` or `CONTINUE`
-    if answer_stop is not answer_continue:
+    if answer_stop is answer_continue:
         log.error("The response didn't contain either `STOP` or `CONTINUE`.")
         raise RuntimeError("The response must contain either `STOP` or `CONTINUE`.")
 
