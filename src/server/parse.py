@@ -570,6 +570,9 @@ def get_text_from_element(element: HtmlElement) -> str:
         str: Text content of the HTML element
     """
 
+    # create a deep copy of the element to prevent modifying the original element
+    element = element.__deepcopy__(None)
+
     # add `|` between text content of nested elements
     for child in element.iter(None):
         child.tail = " | " + child.tail if child.tail is not None else " | "
