@@ -661,7 +661,7 @@ def get_selectors_from_rule(property: str, value: str) -> list[str]:
     return selectors
 
 
-def drop_tag_elements(elements) -> bool:
+def drop_tag_elements(elements: list[HtmlElement]) -> bool:
     """Drop the tag from the given elements and append a space to the tail.
 
     Args:
@@ -673,7 +673,7 @@ def drop_tag_elements(elements) -> bool:
 
     for element in elements:
         try:
-            element.tail = " " + element.tail if element.tail is not None else " "
+            element.tail = " " + element.tail if element.tail is not None else " "  # type: ignore
             element.drop_tag()
         except Exception as e:
             log.trace(f"skipped drop_tag on element {element}: {e}")
