@@ -38,6 +38,7 @@ import {
 import type { RequestBody, ResponseBody } from "~background/messages/process"
 import { cn } from "~lib/utils"
 import type { Relation } from "~types"
+import { CHECK_NETWORK } from "~utils/error"
 
 const DEFAULT_MODEL = "gemini/gemini-pro"
 // const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
@@ -109,7 +110,7 @@ function IndexSidePanel() {
   }
 
   // check if server responded
-  const isServerReady = models.length > 0
+  const isServerReady = models.length > 1
 
   // check if all required data is ready and server is operational
   const isReady = entity.length > 0 && isServerReady && !isLoading
@@ -245,9 +246,7 @@ function IndexSidePanel() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>
-              {response.error
-                ? response.error
-                : "Unknown error occurred. Please try again later."}
+              {response && response.error ? response.error : CHECK_NETWORK}
             </AlertDescription>
           </Alert>
         )}
