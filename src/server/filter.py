@@ -142,7 +142,9 @@ def get_keyword_xpath_query(keywords: list[str]) -> str | None:
 
     # filter elements with keywords
     xpath_query = " | ".join(
-        [f"//*[re:test(text(), '\\b{keyword}\\b', 'i')]" for keyword in keywords]
+        # match whole words with case-insensitive regex with multiple spaces
+        # e.g. "studied at" matches text with irregular spaces "Alex   studied  at Bard College"
+        [f"//*[re:test(text(), '\\b{sub(r" ", " +", keyword)}\\b', 'i')]" for keyword in keywords]
     )
 
     return xpath_query
