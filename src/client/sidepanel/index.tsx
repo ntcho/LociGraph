@@ -37,13 +37,14 @@ import {
 
 import type { RequestBody, ResponseBody } from "~background/messages/process"
 import { cn } from "~lib/utils"
+import type { Relation } from "~types"
 
 const DEFAULT_MODEL = "gemini/gemini-pro"
 // const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
 
 function IndexSidePanel() {
-  const [entity, setEntity] = useState("Domain")
-  const [attribute, setAttribute] = useState("used for")
+  const [entity, setEntity] = useState("")
+  const [attribute, setAttribute] = useState("")
   const [continuous, setContinuous] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
 
@@ -51,6 +52,7 @@ function IndexSidePanel() {
   const [models, setModels] = useState<string[]>([model])
 
   const [response, setResponse] = useState<ResponseBody>(null)
+  const [results, setResults] = useState<Relation[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   // fetch list of available models from the server
@@ -66,6 +68,10 @@ function IndexSidePanel() {
       }
     })()
   }, [])
+
+  const appendResult = (result: Relation[]) => {
+    setResults((prev) => [...prev, ...result])
+  }
 
   const processPage = async () => {
     // don't start process if entity is not defined
@@ -88,6 +94,18 @@ function IndexSidePanel() {
 
     setResponse(response)
     setIsLoading(false)
+
+    if (
+      continuous &&
+      response.error === null &&
+      response.isComplete === false
+    ) {
+      if (response.results && response.results.length > 0) {
+        appendResult(response.results)
+      }
+      // process next action
+      processPage()
+    }
   }
 
   // check if server responded
@@ -211,8 +229,12 @@ function IndexSidePanel() {
               <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />
               Processing...
             </div>
+          ) : response ? (
+            "Continue" // first response received
+          ) : response.isComplete ? (
+            "Start over" // processing completed
           ) : (
-            "Locate"
+            "Locate" // not started processing yet
           )}
         </Button>
 
@@ -255,6 +277,13 @@ function IndexSidePanel() {
           <div>
             <h3>Response</h3>
             <pre>{JSON.stringify(response, null, 2)}</pre>
+          </div>
+        )}
+
+        {results.length > 0 && ( // TODO: update result visualization
+          <div>
+            <h3>Results</h3>
+            <pre>{JSON.stringify(results, null, 2)}</pre>
           </div>
         )}
       </div>

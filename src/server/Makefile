@@ -5,7 +5,7 @@ clean:
 	rm ./logs/*
 
 dev:
-	LITESTAR_APP=app:app litestar run --port 8000 --reload
+	LITESTAR_APP=app:app litestar run --port 8000 --reload --pdb
 
 dev-models:
 	LITESTAR_APP=models.app:app litestar run --port 8001
