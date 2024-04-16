@@ -159,17 +159,6 @@ function IndexSidePanel() {
           <AccordionItem value="advanced-settings">
             <AccordionTrigger>Advanced settings</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-4">
-              <div className="items-center flex gap-4">
-                <Switch
-                  id="continuous-mode"
-                  disabled={isLoading}
-                  checked={continuous}
-                  onCheckedChange={(checked) => {
-                    setContinuous(Boolean(checked))
-                  }}
-                />
-                <Label htmlFor="continuous-mode">Autonomous mode ⚡</Label>
-              </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="model">Inference model</Label>
                 <Popover open={open} onOpenChange={setOpen}>
@@ -214,6 +203,17 @@ function IndexSidePanel() {
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+              <div className="items-center flex gap-4">
+                <Switch
+                  id="continuous-mode"
+                  disabled={isLoading}
+                  checked={continuous}
+                  onCheckedChange={(checked) => {
+                    setContinuous(Boolean(checked))
+                  }}
+                />
+                <Label htmlFor="continuous-mode">Autonomous mode ⚡</Label>
               </div>
             </AccordionContent>
           </AccordionItem>
