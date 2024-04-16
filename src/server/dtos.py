@@ -8,6 +8,11 @@ from lxml.html import HtmlElement
 from lxml.etree import _ElementTree
 
 
+type ElementDetail = Literal[
+    "placeholder", "aria-label", "label", "href", "value", "name", "type"
+]
+
+
 @dataclass
 class Element:
     """Class that represents an element on a webpage.
@@ -22,11 +27,9 @@ class Element:
 
     xpath: str
     html_element: HtmlElement
-    content: str | None
-    details: (
-        dict[Literal["placeholder", "aria-label", "label", "href", "value"], str] | None
-    ) = None
-    relevance: dict[str, float] | None = None
+    content: Optional[str]
+    details: Optional[dict[ElementDetail, str]] = None
+    relevance: Optional[dict[str, float]] = None
 
     def getdetails(self) -> str:
         """Get the details of the element in a string format `key1='value1', key2='value2', ...`.

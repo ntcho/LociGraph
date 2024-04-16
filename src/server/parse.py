@@ -10,7 +10,13 @@ from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
 from tinycss2 import parse_stylesheet, serialize
 
-from dtos import ActionElement, ActionElementType, WebpageData, ParsedWebpageData
+from dtos import (
+    ActionElement,
+    ActionElementType,
+    ElementDetail,
+    WebpageData,
+    ParsedWebpageData,
+)
 
 
 @log_func()
@@ -349,9 +355,7 @@ def flag_action_elements(
         root.xpath(f"//input[not(@type='hidden' or {input_button_selector})]")
     )
     # all <textarea> elements
-    inputs.extend(
-        root.xpath("//textarea")
-    )  # TODO: use `.get("placeholder")` for context
+    inputs.extend(root.xpath("//textarea"))
 
     log.info(f"Extracted INPUT elements [{len(inputs)} elements]")
 
@@ -434,18 +438,24 @@ def get_action_elements(root: HtmlElement, tree: _ElementTree) -> list[ActionEle
             log.warning(f"Skipping action element without xpath: {element}")
             continue
 
-        placeholder: str | None = element.get("placeholder", default=None)
-        aria_label: str | None = element.get("aria-label", default=None)
-        value: str | None = element.get("value", default=None)
+        name: str = element.get("name", default="")
+        type: str = element.get("type", default="")
+        placeholder: str = element.get("placeholder", default="")
+        aria_label: str = element.get("aria-label", default="")
+        value: str = element.get("value", default="")
         label: HtmlElement | None = element.label
 
-        details = {}
+        details: dict[ElementDetail, str] = {}
 
-        if placeholder is not None and placeholder != "":
+        if name != "":
+            details["name"] = name
+        if type != "":
+            details["type"] = type
+        if placeholder != "":
             details["placeholder"] = placeholder
-        if aria_label is not None and aria_label != "":
+        if aria_label != "":
             details["aria-label"] = aria_label
-        if value is not None and value != "":
+        if value != "":
             details["value"] = value
         if label is not None and label.text_content() != "":
             details["label"] = label.text_content()
