@@ -9,7 +9,7 @@ from dtos import Relation, RelationQuery
 from utils.prompt import generate_evaluate_prompt, parse_evaluate_response
 from utils.catalog import DEFAULT_MODEL
 from utils.file import write_json
-from utils.dev import get_timestamp
+from utils.dev import get_timestamp, read_mock_response
 import utils.error as error
 
 
@@ -18,7 +18,7 @@ def evaluate(
     query: RelationQuery,
     results: list[Relation],
     model_id: str = DEFAULT_MODEL,
-    mock_response: str | None = None,
+    mock_response: str | None = read_mock_response("data/mock_response_evaluate.txt"),
 ) -> tuple[bool, list[Relation]]:
     """Evaluate the extracted relations and determine if the extraction is complete.
 
