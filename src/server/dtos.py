@@ -121,10 +121,12 @@ class ActionElement(Element):
         relevance (dict[str, float] | None): The relevance score of the element.
         id (int): The unique identifier of the element. Used to reference the element in actions.
         type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
+        string (str | None): The string representation of the element.
     """
 
     id: int = -1
     type: ActionElementType = "LINK"
+    string: Optional[str] = None
 
     def __str__(self) -> str:
         if self.id < 0:
@@ -188,6 +190,8 @@ class ActionElement(Element):
 
         del copy.html_element
         del copy.relevance
+
+        copy.string = self.__str__()  # add string representation
 
         return copy
 
@@ -437,8 +441,8 @@ class EvaluationEvent(Event):
     data: Optional[ExtractionEvent] = None
     confidence_level: Optional[str] = None  # FUTURE: use top-K prompting strategy
 
-    def getresponse(self) -> "Response":
-        return Response(self.results, self.next_action, self.confidence_level)
+    def getresponse(self) -> "ResponseBody":
+        return ResponseBody(self.results, self.next_action, self.confidence_level)
 
     def __repr__(self) -> str:
         """Get the representation of the evaluation event in a string format `id='...',
@@ -459,25 +463,33 @@ class EvaluationEvent(Event):
 
 
 @dataclass
-class Query:
+class RequestBody:
     """Type definition for the extraction query.
 
     Attributes:
         data (WebpageData): The raw webpage data to extract relations from.
         query (Relation): The relation to extract.
+        previous_action (str | None): The previous action taken in `TYPE [X] 'value'` format.
     """
 
     data: WebpageData
     query: RelationQuery
+    previous_actions: list[str] = field(default_factory=list)
 
     def __repr__(self) -> str:
         """Get the representation of the query in a string format `data=..., query=...`."""
 
-        return f"<dtos.{self.__class__.__name__} data={self.data.__repr__()} query={self.query.__repr__()}>"
+        previous_action = (
+            ""
+            if self.previous_actions is None
+            else f" previous_action={self.previous_actions.__repr__()}"
+        )
+
+        return f"<dtos.{self.__class__.__name__} data={self.data.__repr__()} query={self.query.__repr__()}{previous_action}>"
 
 
 @dataclass
-class Response:
+class ResponseBody:
     """Type definition for the extraction response.
 
     Attributes:

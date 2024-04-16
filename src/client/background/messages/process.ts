@@ -1,76 +1,77 @@
 import { sendToContentScript, type PlasmoMessaging } from "@plasmohq/messaging"
 
-import type { Relation, RelationQuery } from '~types';
+import type { ProcessRequestBody, ProcessResponseBody, Relation, RelationQuery } from '~types';
 import type {
   RequestBody as ExecuteActionRequestBody,
-  ResponseBody as ActionResult
+  ResponseBody as ExecuteActionResponseBody
 } from '~contents/execute-action';
 import type {
   ResponseBody as WebpageData
 } from '~contents/get-webpage-data';
 
+import { getActionString } from "~lib/utils";
 import { CHECK_NETWORK } from "~utils/error";
 
 const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async (req, res) => {
-  const query = req.body.query
-  const model = req.body.model
-  const continuous = req.body.continuous
+  const request = req.body
 
   // get webpage data from content script
   const webpageData = await sendToContentScript<any, WebpageData>({
     name: "get-webpage-data"
   })
 
-  let response: Response = null;
+  const processRequest: ProcessRequestBody = {
+    data: webpageData,
+    query: request.query,
+    previous_actions: request.previousActions
+  }
+  let process: Response = null;
 
   try {
-    response = await fetch(`http://localhost:8000/process?model=${model}`, {
+    process = await fetch(`http://localhost:8000/process?model=${request.model}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        data: webpageData,
-        query: query
-      })
+      body: JSON.stringify(processRequest)
     })
   } catch (e) {
     console.error(CHECK_NETWORK, e)
     res.send({ error: CHECK_NETWORK, isComplete: false })
   }
 
-  const data = await response.json() // { results: Relations[], next_action: Action }
-
-  console.debug("data =", data);
-
-  if (!response.ok) {
-    res.send({ error: response.statusText, isComplete: false })
+  if (!process.ok) {
+    res.send({ error: process.statusText, isComplete: false })
     return
   }
 
-  if (data.next_action === null) {
+  const processResponse: ProcessResponseBody = await process.json()
+
+  console.debug("processResponse =", processResponse);
+
+  const response: ResponseBody = {
+    results: processResponse.results,
+    confidenceLevel: processResponse.confidence_level,
+    action: processResponse.next_action ? getActionString(processResponse.next_action) : null,
+    isComplete: false
+  }
+
+  if (processResponse.next_action === null) {
     // no next action, process is complete
-    res.send({
-      results: data.results,
-      confidenceLevel: data.confidenceLevel,
-      isComplete: true
-    })
+    res.send({ ...response, isComplete: true })
   } else {
-    const actionResult = await sendToContentScript<ExecuteActionRequestBody, ActionResult>({
+    const executeActionResponse = await sendToContentScript<
+      ExecuteActionRequestBody, ExecuteActionResponseBody
+    >({
       name: "execute-action",
       body: {
-        action: data.next_action,
-        continuous: continuous
+        action: processResponse.next_action,
+        continuous: request.continuous
       }
     })
 
     // action executed, process is not complete
-    res.send({
-      results: data.results,
-      actionResult: actionResult,
-      confidenceLevel: data.confidenceLevel,
-      isComplete: false
-    })
+    res.send({ ...response, actionResult: executeActionResponse })
   }
 }
 
@@ -78,11 +79,13 @@ export type RequestBody = {
   query: RelationQuery
   model: string
   continuous: boolean
+  previousActions?: string[]
 }
 
 export type ResponseBody = {
   results?: Relation[]
-  actionResult?: ActionResult
+  action?: string
+  actionResult?: ExecuteActionResponseBody
   confidenceLevel?: string
   error?: string
   isComplete: boolean

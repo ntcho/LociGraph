@@ -365,6 +365,8 @@ Page title: <title>
 Actions:
 <actions>
 Objective: <objective>
+Previous actions:
+<previous_actions>
 Reasoning: Let's think step by step. """  # TODO: add previous actions and reasoning
 
 # FUTURE: Use top-K prompting strategy to generate multiple answers and evaluate the best one
@@ -372,7 +374,11 @@ Reasoning: Let's think step by step. """  # TODO: add previous actions and reaso
 
 
 def generate_act_prompt(
-    url: str, title: str | None, actions: list[ActionElement], query: RelationQuery
+    url: str,
+    title: str | None,
+    actions: list[ActionElement],
+    query: RelationQuery,
+    previous_actions: list[str],
 ) -> list[dict[str, str]]:
     """Generate a prompt to predict the next action to achieve the given objective.
 
@@ -401,6 +407,13 @@ def generate_act_prompt(
         action_list,
     )
     prompt = prompt.replace("<objective>", query.getobjective())
+    prompt = (
+        prompt.replace(
+            "<previous_actions>", "\n".join([f"- {a}" for a in previous_actions])
+        )
+        if len(previous_actions) > 0
+        else prompt.replace("Previous actions:\n<previous_actions\n", "")
+    )
 
     message = [
         {

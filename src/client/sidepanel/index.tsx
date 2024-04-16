@@ -44,15 +44,21 @@ const DEFAULT_MODEL = "gemini/gemini-pro"
 // const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
 
 function IndexSidePanel() {
+  // query settings
   const [entity, setEntity] = useState("")
   const [attribute, setAttribute] = useState("")
+
+  // advanced settings
   const [continuous, setContinuous] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
 
+  // advanced settings accordion
   const [open, setOpen] = useState(false)
   const [models, setModels] = useState<string[]>([model])
 
+  // processing state
   const [response, setResponse] = useState<ResponseBody>(null)
+  const [previousActions, setPreviousActions] = useState<string[]>([])
   const [results, setResults] = useState<Relation[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -89,12 +95,18 @@ function IndexSidePanel() {
           attribute: attribute === "" ? null : attribute
         },
         model: model,
-        continuous: continuous // true to enable full autonomous nagivation
+        continuous: continuous, // enable full autonomous nagivation if true
+        previousActions: previousActions
       }
     })
 
     setResponse(response)
     setIsLoading(false)
+
+    // append latest action to previous actions
+    if (response.action) {
+      setPreviousActions([...previousActions, response.action])
+    }
 
     if (
       continuous &&

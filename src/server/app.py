@@ -12,10 +12,10 @@ from act import act
 
 from dtos import (
     ModelDetail,
-    Query,
+    RequestBody,
     ExtractionEvent,
     EvaluationEvent,
-    Response,
+    ResponseBody,
     ScrapeEvent,
 )
 
@@ -28,7 +28,7 @@ load_dotenv()  # Load environment variables from `.env` file
 
 @post("/process/", sync_to_thread=True)
 @log_func()
-def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
+def process_pipeline(data: RequestBody, model: str = DEFAULT_MODEL) -> ResponseBody:
     """Process the given extraction query.
 
     Note:
@@ -74,8 +74,9 @@ def process_pipeline(data: Query, model: str = DEFAULT_MODEL) -> Response:
     # Decide next action based on evaluation result
 
     if not completed:  # skip if extraction is complete
-        next_action = act(actions, query, webpage.url, webpage.title, model)
-        evaluation.next_action = next_action
+        evaluation.next_action = act(
+            actions, query, data.previous_actions, webpage.url, webpage.title, model
+        )
 
     # Step 6: Respond
     # Return the extracted relations and next action to browser

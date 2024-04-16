@@ -17,6 +17,7 @@ import utils.error as error
 def act(
     actions: list[ActionElement],
     query: RelationQuery,
+    previous_actions: list[str],
     url: str,
     title: str | None,
     model_id: str = DEFAULT_MODEL,
@@ -35,7 +36,7 @@ def act(
 
     try:
         response = completion(
-            messages=generate_act_prompt(url, title, actions, query),
+            messages=generate_act_prompt(url, title, actions, query, previous_actions),
             model=model_id,
             mock_response=mock_response,
         )
