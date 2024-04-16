@@ -336,6 +336,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
         raise RuntimeError("Failed to initialize expansion variables.")
 
     all_keywords = []
+    result_keywords: list[str] = []  # set to check for duplicates
     results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
 
     for keyword in keywords:
@@ -373,7 +374,9 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
                 # add all forms of the word
                 # e.g. "studied" -> ["study"]
                 for form in word.forms():
-                    results.append((form, Relevancy.HIGH))
+                    if form not in result_keywords:
+                        result_keywords.append(form)
+                        results.append((form, Relevancy.HIGH))
 
             log.debug(f"  synset: added {synset.lemmas()}")
 
@@ -381,7 +384,9 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
             for related_synset in synset.get_related():
                 for word in related_synset.words():
                     for form in word.forms():
-                        results.append((form, Relevancy.LOW))
+                        if form not in result_keywords:
+                            result_keywords.append(form)
+                            results.append((form, Relevancy.LOW))
 
                 log.trace(f"    related: added {related_synset.lemmas()}")
 
