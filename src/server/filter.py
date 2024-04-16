@@ -1,7 +1,7 @@
 from utils.logging import log, log_func
 
 
-import re
+from re import sub
 from enum import Enum
 from pprint import pformat
 
@@ -174,31 +174,39 @@ def filter_elements(
     results: list[Element] = []
 
     for xpath_query, content_relevancy in xpath_queries:
-        log.info(f"Filtering elements with XPath query [{len(xpath_query)}]")
-        # log.debug(f"Filtering elements with XPath query [{relevancy}, {xpath_query}]")
+        log.info(f"Filtering elements with XPath query (len={len(xpath_query)})")
+        log.trace(
+            f"Filtering elements with XPath query [relevancy={content_relevancy}, query=`{xpath_query}`]"
+        )
 
         # filter elements with the XPath query
         xpath_eval: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
 
         # create Element objects from the filtered elements
-        filtered_elements = list(
-            map(
-                lambda element: Element(
-                    xpath=tree.getpath(element),
-                    html_element=element,
-                    content=re.sub(
-                        r" +", " ", re.sub(r"\n\s*", "\n", element.text_content())
-                    ).strip(),  # remove extra spaces and newlines
-                    relevance={
-                        "content": float(content_relevancy),
-                        "location": float(
-                            calculate_location_relevance(tree.getpath(element))
-                        ),
-                    },
-                ),
-                xpath_eval,
+        filtered_elements: list[Element] = []
+
+        for element in xpath_eval:
+            content = element.text_content()
+            content = sub(r" +", " ", content)  # remove extra spaces
+            content = sub(r"\n\s*", "\n", content)  # remove extra newlines
+
+            result = Element(
+                xpath=tree.getpath(element),
+                html_element=element,
+                content=content.strip(),
+                relevance={
+                    "content": float(content_relevancy),
+                    "location": float(
+                        calculate_location_relevance(tree.getpath(element))
+                    ),
+                },
             )
-        )
+            filtered_elements.append(result)
+
+            try:
+                element.drop_tree()  # drop element from tree to prevent duplicates
+            except Exception as e:
+                log.trace(f"skipping drop_tree: {e}")
 
         log.info(f"Found {len(filtered_elements)} elements")
         log.debug(f"Filtered elements: \n```\n{pformat(filtered_elements)}\n```")
