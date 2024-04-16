@@ -92,7 +92,7 @@ def extract_triplets(extracted_text: str) -> list[Triplet]:
     Returns:
         list[Triplet]: The extracted triplets from the text."""
 
-    triplets = []
+    triplets: list[Triplet] = []
     relation = ""
     extracted_text = extracted_text.strip()
     current = "x"
@@ -165,7 +165,7 @@ def extract_triplets(extracted_text: str) -> list[Triplet]:
             )
         )
 
-    return triplets
+    return list(set(triplets))  # remove duplicates
 
 
 @log_func()
