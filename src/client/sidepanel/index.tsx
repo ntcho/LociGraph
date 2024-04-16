@@ -230,9 +230,11 @@ function IndexSidePanel() {
               Processing...
             </div>
           ) : response ? (
-            "Continue" // first response received
-          ) : response.isComplete ? (
-            "Start over" // processing completed
+            response.isComplete ? (
+              "Start over" // processing completed
+            ) : (
+              "Continue" // first response received
+            )
           ) : (
             "Locate" // not started processing yet
           )}
