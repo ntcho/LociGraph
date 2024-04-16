@@ -36,7 +36,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
     })
   } catch (e) {
     console.error(CHECK_NETWORK, e)
-    res.send({ error: CHECK_NETWORK })
+    res.send({ error: CHECK_NETWORK, isComplete: false })
   }
 
   const data = await response.json() // { results: Relations[], next_action: Action }
@@ -44,17 +44,19 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
   console.debug("data =", data);
 
   if (!response.ok) {
-    res.send({ error: response.statusText })
+    res.send({ error: response.statusText, isComplete: false })
     return
   }
 
   if (data.next_action === null) {
+    // no next action, process is complete
     res.send({
       results: data.results,
-      confidenceLevel: data.confidenceLevel
+      confidenceLevel: data.confidenceLevel,
+      isComplete: true
     })
   } else {
-    const actionResults = await sendToContentScript<ExecuteActionRequestBody, ActionResult>({
+    const actionResult = await sendToContentScript<ExecuteActionRequestBody, ActionResult>({
       name: "execute-action",
       body: {
         action: data.next_action,
@@ -62,10 +64,12 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
       }
     })
 
+    // action executed, process is not complete
     res.send({
       results: data.results,
-      actionResult: actionResults,
-      confidenceLevel: data.confidenceLevel
+      actionResult: actionResult,
+      confidenceLevel: data.confidenceLevel,
+      isComplete: false
     })
   }
 }
@@ -81,6 +85,7 @@ export type ResponseBody = {
   actionResult?: ActionResult
   confidenceLevel?: string
   error?: string
+  isComplete: boolean
 }
 
 export default handler
