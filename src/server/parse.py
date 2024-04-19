@@ -5,7 +5,6 @@ from base64 import b64decode
 from re import sub
 from pprint import pformat
 
-from trafilatura import extract
 from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
 from tinycss2 import parse_stylesheet, serialize
@@ -31,9 +30,6 @@ def parse(data: WebpageData) -> ParsedWebpageData:
 
     html = b64decode(data.htmlBase64).decode("utf-8")
 
-    # extract plain text and markdown content
-    content, content_markdown = extract_text(html, data.url)
-
     # extract HTML elements with actions
     root, tree, title, actions = extract_html(html, data.url)
 
@@ -43,43 +39,10 @@ def parse(data: WebpageData) -> ParsedWebpageData:
         data.imageBase64,
         data.language,
         title,
-        content,
-        content_markdown,
         root,
         tree,
         actions,
     )
-
-
-def extract_text(html: str, url: str) -> tuple[str | None, str | None]:
-    """Extract plain text and markdown from HTML using trafilatura.
-
-    Args:
-        html (str): HTML of the webpage
-        url (str): URL of the webpage
-
-    Returns:
-        tuple[str]: Plain text and markdown of the webpage content
-    """
-
-    content = extract(html)
-
-    if content:
-        log.info(f"Extracted content in plain text [{len(content)} chars]")
-        log.debug(f"Extracted content: \n```\n{content[:100]}...\n```")
-    else:
-        log.warning(f"Extracted no content from html [{len(html)} bytes]")
-        return None, None
-
-    content_markdown = extract(html, include_links=True, url=url)
-
-    if content_markdown:
-        log.info(f"Extracted content in markdown [{len(content_markdown)} chars]")
-        log.debug(f"Extracted content: \n```\n{content_markdown[:100]}...\n```")
-
-    log.success(f"Extracted {len(content)} chars of plain text from `{url}`")
-
-    return content, content_markdown
 
 
 # xpath selector for elements with click events

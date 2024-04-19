@@ -86,7 +86,6 @@ tokenizers==0.15.1
 tomli==2.0.1
 torch==2.2.2
 tqdm==4.66.1
-trafilatura==1.7.0
 transformers==4.37.2
 typing_extensions==4.9.0
 tzlocal==5.2

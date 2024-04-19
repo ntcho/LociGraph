@@ -279,22 +279,17 @@ class ParsedWebpageData(WebpageData):
 
     Attributes:
         title (str | None): The title of the webpage.
-        content (str | None): The full text content of the webpage.
-        contentMarkdown (str | None): The full text content of the webpage in Markdown format.
         contentHTML (HtmlElement | None): The full text content of the webpage as an HTML element.
         actions (list[ActionElement]): The interactive elements on the webpage.
     """
 
     title: str | None
-    content: str | None
-    contentMarkdown: str | None
     contentHTML: HtmlElement | None
     contentTree: _ElementTree | None
     actions: list[ActionElement]
 
     def getrepr(self) -> str:
-        content = "" if self.content is None else f" len(content)={len(self.content)}"
-        return f"title='{self.title}' actions=[{self.actions}]{content} {super().getrepr()}"
+        return f"title='{self.title}' actions=[{self.actions}] {super().getrepr()}"
 
     def __repr__(self) -> str:
         """Get the representation of the parsed webpage data in a string format
