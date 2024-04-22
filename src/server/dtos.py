@@ -437,7 +437,7 @@ class EvaluationEvent(Event):
     results: list[Relation]
     next_action: Action | None  # None if extraction is complete
     data: Optional[ExtractionEvent] = None
-    confidence_level: Optional[str] = None  # FUTURE: use top-K prompting strategy
+    confidence_level: Optional[str] = None
 
     def getresponse(self) -> "ResponseBody":
         return ResponseBody(self.results, self.next_action, self.confidence_level)

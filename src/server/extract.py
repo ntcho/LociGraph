@@ -29,9 +29,6 @@ def extract(
     results.extend(extract_mrebel(elements))
     results.extend(extract_llm(elements, query, title, model_id, mock_response))
 
-    # FUTURE: use asyncio to run both extraction methods concurrently
-    # FUTURE: use HTTP 102 or WebSocket to send updates for long requests
-
     return results
 
 
@@ -104,9 +101,6 @@ def extract_llm(
             model=model_id,
             mock_response=mock_response,
         )
-
-        # FUTURE: add observability callbacks
-        # See more: https://docs.litellm.ai/docs/observability/callbacks
 
         # Save the response to a file
         write_json(f"logs/{get_timestamp()}_response_extract.json", response.json())  # type: ignore

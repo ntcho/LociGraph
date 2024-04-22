@@ -82,8 +82,6 @@ def process_pipeline(data: RequestBody, model: str = DEFAULT_MODEL) -> ResponseB
     # Return the extracted relations and next action to browser
     return evaluation.getresponse()
 
-    # FUTURE: add cloud storage for ExtractionEvent data
-
 
 models = None
 

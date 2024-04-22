@@ -251,7 +251,6 @@ def filter_action_elements(
                     action.relevance = {
                         "content": content_relevance,
                         "location": calculate_location_relevance(action.xpath),
-                        # FUTURE: add relevancy based on distance with filtered elements
                     }
                     log.debug(f"Found action with keyword: {repr(action)}")
                     break
@@ -327,10 +326,6 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     Note:
         WikiData aliases are generally more accurate, but Wordnet is added to
         capture all possible synonyms and related words.
-
-    Future:
-        Could also use `wn.similarity` to filter based on semantic similarity.
-        See more: https://wn.readthedocs.io/en/latest/api/wn.similarity.html
 
     Args:
         keywords (list[str]): The keywords to expand.

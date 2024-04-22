@@ -41,9 +41,6 @@ def act(
             mock_response=mock_response,
         )
 
-        # FUTURE: add observability callbacks
-        # See more: https://docs.litellm.ai/docs/observability/callbacks
-
         # Save the response to a file
         write_json(f"logs/{get_timestamp()}_response_act.json", response.json())  # type: ignore
 

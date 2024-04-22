@@ -83,9 +83,6 @@ Output:
 No relations found
 """
 
-# FUTURE: use Auto-CoT
-# Read more: https://www.promptingguide.ai/techniques/cot#automatic-chain-of-thought-auto-cot
-
 extract_prompt_template = """
 Page title: <title>
 Content:
@@ -368,9 +365,6 @@ Objective: <objective>
 Previous actions:
 <previous_actions>
 Reasoning: Let's think step by step. """  # TODO: add previous actions and reasoning
-
-# FUTURE: Use top-K prompting strategy to generate multiple answers and evaluate the best one
-# See more: https://arxiv.org/pdf/2306.13063.pdf#page=28.20
 
 
 def generate_act_prompt(
