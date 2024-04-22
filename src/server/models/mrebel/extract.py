@@ -23,6 +23,9 @@ class Triplet:
     tail: str
     tail_type: str
 
+    def __hash__(self) -> int:
+        return hash((self.head, self.type, self.tail))
+
 
 @log_func()
 def extract(text: str) -> list[Relation]:
