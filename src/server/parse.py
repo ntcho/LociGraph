@@ -152,7 +152,7 @@ def flag_noise_elements(
     selectors = []
 
     for property, value in noise_styles:
-        selectors.extend(get_selectors_from_rule(property, value))
+        selectors.extend(filter_selectors(property, value))
 
     for selector in selectors:
         try:
@@ -243,10 +243,14 @@ def flag_action_elements(
     # all <a> elements with non-empty text content
     links.extend(html.xpath("//a[string-length(text()) > 0]"))
     # all elements with `cursor: pointer` style with non-empty text content
-    for selector in get_selectors_from_rule("cursor", "pointer"):
+    for selector in filter_selectors("cursor", "pointer"):
         try:
             links.extend(
-                [e for e in html.cssselect(selector) if len(e.text_content()) > 0]
+                [
+                    e
+                    for e in html.cssselect(selector)
+                    if len(e.text_content().strip()) > 0
+                ]
             )
         except Exception as e:
             # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
@@ -362,13 +366,13 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             details["aria-label"] = aria_label
         if value != "":
             details["value"] = value
-        if label is not None and label.text_content() != "":
-            details["label"] = label.text_content()
+        if label is not None and label.text_content().strip() != "":
+            details["label"] = label.text_content().strip()
 
         actions.append(
             ActionElement(
                 xpath=xpath,
-                html_element=element.text_content(),
+                html_element=element,
                 type="INPUT",
                 content=element.get("value", default=None),
                 details=(details if len(details) > 0 else None),
@@ -440,6 +444,7 @@ cosmetic_tags = [
     "button",
     "abbr",
     "b",
+    "br",
     "bdi",
     "bdo",
     "cite",
@@ -613,7 +618,7 @@ def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
     return all_rules
 
 
-def get_selectors_from_rule(property: str, value: str) -> list[str]:
+def filter_selectors(property: str, value: str) -> list[str]:
     """Get all CSS selectors that contain a CSS rule `{ property: value; }`
     from given `<style>` elements.
 
@@ -636,8 +641,6 @@ def get_selectors_from_rule(property: str, value: str) -> list[str]:
 
     for rule in all_rules:
         if rule.type == "qualified-rule" or rule.type == "at-rule":
-            property_exists = False
-            value_exists = False
 
             def get_next_ident_token(tokens, i):
                 while i < len(tokens):
@@ -666,7 +669,7 @@ def get_selectors_from_rule(property: str, value: str) -> list[str]:
     return selectors
 
 
-def drop_tag_elements(elements: list[HtmlElement]) -> bool:
+def drop_tag(elements: list[HtmlElement]) -> bool:
     """Drop the tag from the given elements and append a space to the tail.
 
     Args:

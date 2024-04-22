@@ -11,6 +11,7 @@ from lxml.html import HtmlElement, tostring
 from lxml.etree import _ElementTree
 
 from dtos import ActionElement, Element, ParsedWebpageData, RelationQuery
+from parse import get_text_content
 
 from utils.props import read_props_index
 from utils.file import read_json
@@ -188,14 +189,12 @@ def filter_elements(
         filtered_elements: list[Element] = []
 
         for element in xpath_eval:
-            content = element.text_content()
-            content = sub(r" +", " ", content)  # remove extra spaces
-            content = sub(r"\n\s*", "\n", content)  # remove extra newlines
+            content = get_text_content(element)
 
             result = Element(
                 xpath=tree.getpath(element),
                 html_element=element,
-                content=content.strip(),
+                content=content,
                 relevance={
                     "content": float(content_relevancy),
                     "location": float(
