@@ -51,12 +51,17 @@
     "permissions": [
       "scripting",
       "activeTab",
-      "debugger"
+      "debugger",
+      "sidePanel",
+      "contextMenus"
     ],
     "externally_connectable": {
       "matches": [
         "<all_urls>"
       ]
+    },
+    "action": {
+      "default_title": "Click to open panel"
     }
   }
 }
