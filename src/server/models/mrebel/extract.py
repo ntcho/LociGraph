@@ -84,7 +84,9 @@ def extract_triplets(extracted_text: str) -> list[Triplet]:
     """Extract triplets from string with triplet tokens.
 
     Note:
-        TODO: add `extracted_text` format and example
+        If the extraction source text is `Alex graduated from Bard College` and relation
+        `[Alex, educated at, Bard College]` was extracted, the format for `extracted_text`
+        would be `tp_XX<triplet> Alex <per> Bard College <loc> educated at</s>`.
 
     Args:
         text (str): The translated text with triplet tokens.

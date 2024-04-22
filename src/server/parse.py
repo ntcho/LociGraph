@@ -237,7 +237,7 @@ def flag_action_elements(
     links: list[HtmlElement] = []
     buttons: list[HtmlElement] = []
     inputs: list[HtmlElement] = []
-    # dropdowns = [] # TODO: add support for <select> tags
+    # dropdowns = [] # FUTURE: add support for <select> tags
 
     # * extract LINK elements
     # all <a> elements with non-empty text content
@@ -279,7 +279,7 @@ def flag_action_elements(
     log.info(f"Extracted BUTTON elements [{len(buttons)} elements]")
 
     # * Extract SELECT elements
-    # dropdowns.extend(html.xpath("//select")) # TODO: add support for <select> tags
+    # dropdowns.extend(html.xpath("//select")) # FUTURE: add support for <select> tags
 
     action_elements: dict[ActionElementType, list[HtmlElement]] = {
         "INPUT": inputs,

@@ -322,7 +322,7 @@ You can take these actions:
 
     CLICK [X] - click element with id X. You can only click on LINK and BUTTON!
     TYPE [X] 'text' - type the specified text into INPUT element with id X.
-    TYPESUBMIT [X] 'text' - same as TYPE above, except this command presses ENTER to submit the form
+    TYPESUBMIT [X] 'text' - same as TYPE, except this command presses ENTER to submit the form, such as a search input.
 
 LINK, INPUT, BUTTON elements are represented like this:
 
@@ -364,7 +364,9 @@ Actions:
 Objective: <objective>
 Previous actions:
 <previous_actions>
-Reasoning: Let's think step by step. """  # TODO: add previous actions and reasoning
+Reasoning: Let's think step by step. """
+
+# TODO: add reasoning examples including previous actions
 
 
 def generate_act_prompt(
