@@ -502,7 +502,42 @@ def simplify_html(
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
     for tag in cosmetic_tags:
-        drop_tag_elements(html.xpath(f"//{tag}"))
+        drop_tag(html.xpath(f"//{tag}"))
+
+    # replace table contents with markdown-style tables
+    # e.g. <tr><td>1</td><td>2</td></tr> -> 1 | 2
+    for table in html.xpath("//table"):
+
+        # table content by line
+        captions: list[str] = []
+        contents: list[str] = []
+
+        # read table content from <tr> tags
+        for row in table.xpath(".//tr"):
+            text = " | ".join(
+                [get_text_content(c, delimiter="; ") for c in row.iterchildren()]
+            )
+
+            if len(text) > 0 and row.getparent() is not None:
+                parent_tag = row.getparent().tag
+                if parent_tag == "thead":
+                    text = text + "\n" + "-" * len(text)  # add separator after header
+                elif parent_tag == "tfoot":
+                    text = "-" * len(text) + "\n" + text  # add separator before footer
+
+            contents.append(text)
+
+        # read table caption from <caption> tag
+        for caption in table.xpath(".//caption"):
+            text = caption.text_content().strip()
+
+            if len(text) > 0:
+                captions.append(f"[{text}]")
+
+        # flatten the table into markdown-style text
+        text = "\n\n```table\n" + "\n".join(captions + contents) + "\n```\n\n"
+        table.clear()
+        table.text = text
 
     # remove attributes from all elements
     for e in html.iter():  # type: ignore
