@@ -2,7 +2,7 @@ from utils.logging import log, log_func
 
 
 from base64 import b64decode
-from re import sub
+from re import sub, escape, MULTILINE
 from pprint import pformat
 
 from lxml.html import HtmlElement, fromstring
@@ -112,7 +112,6 @@ noise_tags = [
     "base",
     "svg",
     "path",
-    "br",
     "wbr",
 ]
 
@@ -384,7 +383,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             log.warning(f"Skipping action element without xpath: {element}")
             continue
 
-        content = get_text_from_element(element)
+        content = get_text_content(element)
 
         if len(content) == 0:
             continue  # skip empty buttons
@@ -407,7 +406,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             log.warning(f"Skipping action element without xpath: {element}")
             continue
 
-        content = get_text_from_element(element)
+        content = get_text_content(element)
 
         if len(content) == 0:
             continue  # skip empty links
@@ -488,16 +487,16 @@ def simplify_html(
     while True:
         elements = html.xpath("//*[not(normalize-space())]")
 
-        # repeat until no more elements are found
-        if len(elements) == 0 or drop_tag_elements(elements) is False:
+        # repeat until no more elements are removed
+        if len(elements) == 0 or drop_tag(elements) is False:
             break
 
     # remove tags from elements that contain only one child element
     while True:
         elements = html.xpath("//*[count(*) = 1]")
 
-        # repeat until no more elements are found
-        if len(elements) == 0 or drop_tag_elements(elements) is False:
+        # repeat until no more elements are removed
+        if len(elements) == 0 or drop_tag(elements) is False:
             break
 
     # remove tags that are purely cosmetic
@@ -512,14 +511,17 @@ def simplify_html(
     return html, tree
 
 
-def get_text_from_element(element: HtmlElement) -> str:
+def get_text_content(element: HtmlElement, delimiter: str = " | ") -> str:
     """Get the text content of an HTML element.
 
     Note:
-        This function will add `|` between text content of nested elements.
+        This function will add `|` (or given delimiter) between text content of
+        nested elements.
 
     Args:
         element (HtmlElement): HTML element
+        delimiter (str, optional): Delimiter between text content of nested elements.
+        Defaults to " | ".
 
     Returns:
         str: Text content of the HTML element
@@ -528,16 +530,29 @@ def get_text_from_element(element: HtmlElement) -> str:
     # create a deep copy of the element to prevent modifying the original element
     element = element.__deepcopy__(None)
 
-    # add `|` between text content of nested elements
+    de = escape(delimiter.strip())  # escaped delimiter
+
+    # add delimiter between text content of nested elements
     for child in element.iter(None):
-        child.tail = " | " + child.tail if child.tail is not None else " | "
+        child.tail = delimiter + child.tail if child.tail is not None else delimiter
 
-    content = sub(r"\s+", " ", element.text_content())  # remove extra spaces
-    content = sub(r"(?: \|)+", " |", content).strip()  # remove repeated `|` characters
-    content = sub(r"\|$", "", content)  # remove trailing `|`
-    content = sub(r"^\|", "", content)  # remove leading `|`
+    content = element.text_content()
 
-    return content.strip()
+    # remove repeated delimiters
+    content = sub(rf"(?: ?{de})+", delimiter, content)
+
+    # remove trailing and leading spaces, tabs or delimiters
+    content = sub(rf"(?:^[ \t{de}]*)|(?:[ \t{de}]*$)", "", content, flags=MULTILINE)
+
+    # remove extra spaces
+    content = sub(r"[ \t]{2,}", " ", content)
+
+    # replace 3+ blank lines to 2 blank lines
+    content = sub(r"\n{4,}", "\n\n\n", content)
+
+    content = content.strip()
+
+    return content
 
 
 def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
