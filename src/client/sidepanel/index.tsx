@@ -232,7 +232,15 @@ function IndexSidePanel() {
         </Accordion>
 
         <Button
-          variant={isLoading ? "outline" : continuous ? "warning" : "default"}
+          variant={
+            isLoading
+              ? "outline"
+              : continuous
+                ? "warning"
+                : isReady
+                  ? "primary"
+                  : "default"
+          }
           disabled={!isReady}
           onClick={() => {
             processPage()
