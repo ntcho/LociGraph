@@ -1,6 +1,6 @@
 import { Handle, Position } from "reactflow"
 
-function RelationNode({ data, type }) {
+function RelationNode({ data }) {
   return (
     <div
       className="px-4 py-2 shadow-md rounded-md border-2 \
