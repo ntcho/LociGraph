@@ -36,6 +36,9 @@ import {
 } from "lucide-react"
 
 import type { RequestBody, ResponseBody } from "~background/messages/process"
+import { ToastAction } from "~components/ui/toast"
+import { Toaster } from "~components/ui/toaster"
+import { useToast } from "~components/ui/use-toast"
 import { cn } from "~lib/utils"
 import type { Relation } from "~types"
 import { CHECK_NETWORK } from "~utils/error"
@@ -64,21 +67,46 @@ function IndexSidePanel() {
   const [results, setResults] = useState<Relation[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
+  // toast for temporary messages
+  const { toast } = useToast()
+
+  const fetchModels = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/models`)
+      const data = await response.json()
+      setModels(data)
+    } catch (error) {
+      console.error("Failed to fetch models", error)
+      setModels([model])
+
+      toast({
+        icon: <AlertCircle className="h-4 w-4" />,
+        description: CHECK_NETWORK,
+        action: (
+          <ToastAction altText="Retry" onClick={fetchModels}>
+            Retry
+          </ToastAction>
+        )
+      })
+    }
+  }
+
   // fetch list of available models from the server
   useEffect(() => {
-    ;(async () => {
-      try {
-        const response = await fetch(`http://localhost:8000/models`)
-        const data = await response.json()
-        setModels(data)
-      } catch (error) {
-        console.error("Failed to fetch models", error)
-        setModels([model])
-      }
-    })()
+    fetchModels()
   }, [])
 
   const appendResults = (results: Relation[]) => {
+    // remove duplicates
+    results = results.filter(
+      (x) =>
+        !results.some(
+          (y) =>
+            x.entity === y.entity &&
+            x.attribute === y.attribute &&
+            x.value === y.value
+        )
+    )
     setResults((prev) => [...prev, ...results])
   }
 
@@ -104,6 +132,16 @@ function IndexSidePanel() {
 
     setResponse(response)
     setIsLoading(false)
+
+    if (response.error != null) {
+      toast({
+        icon: <AlertCircle className="h-4 w-4" />,
+        description: response.error
+          ? response.error
+          : "Unknown error occurred. Please try again later."
+      })
+      return
+    }
 
     // append results to previous results
     if (
@@ -131,10 +169,10 @@ function IndexSidePanel() {
   }
 
   // check if server responded
-  const isServerReady = models.length > 1
+  const isServerOnline = models.length > 1
 
   // check if all required data is ready and server is operational
-  const isReady = entity.length > 0 && isServerReady && !isLoading
+  const isReady = entity.length > 0 && isServerOnline && !isLoading
 
   return (
     <ThemeProvider
@@ -189,7 +227,7 @@ function IndexSidePanel() {
                       variant="outline"
                       role="combobox"
                       aria-expanded={isPopoverOpen}
-                      disabled={!isServerReady}
+                      disabled={!isServerOnline}
                       className="w-full justify-between">
                       {model}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -262,7 +300,7 @@ function IndexSidePanel() {
             </div>
           ) : response ? (
             response.isComplete ? (
-              "Start over" // processing completed
+              "Locate" // processing completed
             ) : (
               "Continue" // first response received
             )
@@ -270,16 +308,6 @@ function IndexSidePanel() {
             "Locate" // not started processing yet
           )}
         </Button>
-
-        {!isServerReady && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {response && response.error ? response.error : CHECK_NETWORK}
-            </AlertDescription>
-          </Alert>
-        )}
 
         {continuous && (
           <Alert variant="warning">
@@ -292,21 +320,11 @@ function IndexSidePanel() {
           </Alert>
         )}
 
-        {response && response.error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {response.error
-                ? response.error
-                : "Unknown error occurred. Please try again later."}
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="flex flex-1 w-full">
           <RelationGraph relations={results} />
         </div>
+
+        <Toaster />
       </div>
     </ThemeProvider>
   )
