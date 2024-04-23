@@ -104,7 +104,13 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
         const edge = id_exists(attributeId, edges)
           ? edges.find((edge) => edge.id === attributeId)
           : newEdges.find((edge) => edge.id === attributeId)
-        edge.data.label += " & " + relation.attribute
+
+        // check if the attribute already exists in the label
+        if (
+          edge.data.label &&
+          !edge.data.label.split(" & ").includes(relation.attribute)
+        )
+          edge.data.label += " & " + relation.attribute
       }
 
       nextY += 100 // increment y for the next node
