@@ -36,8 +36,10 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
 
   useEffect(() => {
     // cooridnates of the next node; add new nodes to the left bottom corner
-    let nextX = Math.min(...nodes.map((node) => node.position.x))
-    let nextY = Math.max(...nodes.map((node) => node.position.y))
+    let nextX =
+      nodes.length === 0 ? 0 : Math.min(...nodes.map((node) => node.position.x))
+    let nextY =
+      nodes.length === 0 ? 0 : Math.max(...nodes.map((node) => node.position.y))
 
     const newNodes = []
     const newEdges = []
