@@ -10,15 +10,22 @@ import type {
 } from '~contents/get-webpage-data';
 
 import { getActionString } from "~lib/utils";
-import { CHECK_NETWORK } from "~utils/error";
+import { CHECK_NETWORK, CHECK_EXTENSION } from '~utils/error';
 
 const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async (req, res) => {
   const request = req.body
 
   // get webpage data from content script
-  const webpageData = await sendToContentScript<any, WebpageData>({
-    name: "get-webpage-data"
-  })
+  let webpageData: WebpageData
+  try {
+    webpageData = await sendToContentScript<any, WebpageData>({
+      name: "get-webpage-data"
+    })
+  } catch (e) {
+    console.error(CHECK_EXTENSION, e)
+    res.send({ error: CHECK_EXTENSION, isComplete: false })
+    return
+  }
 
   const processRequest: ProcessRequestBody = {
     data: webpageData,
