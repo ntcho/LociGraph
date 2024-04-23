@@ -45,6 +45,10 @@ const edgeTypes: EdgeTypes = { relation: RelationEdge }
 // helper function to replace spaces with underscores
 const get_id = (string: string) => string.replace(/\s+/g, "_")
 
+// helper function to check whether id exists in the list of nodes or edges
+const id_exists = (id: string, nodes: any[]) =>
+  nodes.find((node) => node.id === id) !== undefined
+
 function RelationGraph({ relations }: { relations: Relation[] }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -65,12 +69,10 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
     for (const relation of relations) {
       const entityId = get_id(relation.entity)
       const valueId = get_id(relation.value)
-      const attributeId = get_id(
-        `${relation.entity}-${relation.attribute}-${relation.value}`
-      )
+      const attributeId = get_id(`${entityId}-${valueId}`)
 
-      // add new nodes if they don't exist
-      if (nodes.find((node) => node.id === entityId) === undefined) {
+      // add new nodes if they haven't been added yet
+      if (!id_exists(entityId, nodes) && !id_exists(entityId, newNodes)) {
         newNodes.push({
           id: entityId,
           type: "relation",
@@ -79,7 +81,7 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
         })
       }
 
-      if (nodes.find((node) => node.id === valueId) === undefined) {
+      if (!id_exists(valueId, nodes) && !id_exists(valueId, newNodes)) {
         newNodes.push({
           id: valueId,
           type: "relation",
@@ -88,7 +90,7 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
         })
       }
 
-      if (edges.find((edge) => edge.id === attributeId) === undefined) {
+      if (!id_exists(attributeId, edges) && !id_exists(attributeId, newEdges)) {
         newEdges.push({
           id: attributeId,
           type: "relation",
@@ -97,6 +99,12 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
           data: { label: relation.attribute },
           markerEnd: arrowMarker
         })
+      } else {
+        // update the label of the edge
+        const edge = id_exists(attributeId, edges)
+          ? edges.find((edge) => edge.id === attributeId)
+          : newEdges.find((edge) => edge.id === attributeId)
+        edge.data.label += " & " + relation.attribute
       }
 
       nextY += 100 // increment y for the next node
