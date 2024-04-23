@@ -40,13 +40,15 @@ import { cn } from "~lib/utils"
 import type { Relation } from "~types"
 import { CHECK_NETWORK } from "~utils/error"
 
+import RelationGraph from "./graph"
+
 const DEFAULT_MODEL = "gemini/gemini-pro"
 // const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
 
 function IndexSidePanel() {
   // query settings
-  const [entity, setEntity] = useState("")
-  const [attribute, setAttribute] = useState("")
+  const [entity, setEntity] = useState("Explodemon")
+  const [attribute, setAttribute] = useState("developer")
 
   // advanced settings
   const [continuous, setContinuous] = useState(false)
@@ -76,8 +78,8 @@ function IndexSidePanel() {
     })()
   }, [])
 
-  const appendResult = (result: Relation[]) => {
-    setResults((prev) => [...prev, ...result])
+  const appendResults = (results: Relation[]) => {
+    setResults((prev) => [...prev, ...results])
   }
 
   const processPage = async () => {
@@ -103,20 +105,27 @@ function IndexSidePanel() {
     setResponse(response)
     setIsLoading(false)
 
+    // append results to previous results
+    if (
+      response.error == null &&
+      response.results &&
+      response.results.length > 0
+    ) {
+      appendResults(response.results)
+      console.log("results", response.results)
+    }
+
     // append latest action to previous actions
     if (response.action) {
       setPreviousActions([...previousActions, response.action])
     }
 
+    // continue processing if continuous mode is enabled
     if (
       continuous &&
       response.error === null &&
       response.isComplete === false
     ) {
-      if (response.results && response.results.length > 0) {
-        appendResult(response.results)
-      }
-      // process next action
       processPage()
     }
   }
@@ -133,7 +142,7 @@ function IndexSidePanel() {
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange>
-      <div className="flex flex-col items-stretch p-8 gap-4">
+      <div className="flex flex-col items-stretch p-8 gap-4 h-dvh">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">LociGraph</h1>
           <ThemeToggle />
@@ -294,7 +303,7 @@ function IndexSidePanel() {
           </Alert>
         )}
 
-        {response && (
+        {/* {response && (
           <div>
             <h3>Response</h3>
             <pre>{JSON.stringify(response, null, 2)}</pre>
@@ -306,7 +315,11 @@ function IndexSidePanel() {
             <h3>Results</h3>
             <pre>{JSON.stringify(results, null, 2)}</pre>
           </div>
-        )}
+        )} */}
+
+        <div className="flex flex-1 w-full">
+          <RelationGraph relations={results} />
+        </div>
       </div>
     </ThemeProvider>
   )
