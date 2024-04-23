@@ -47,15 +47,15 @@ const DEFAULT_MODEL = "gemini/gemini-pro"
 
 function IndexSidePanel() {
   // query settings
-  const [entity, setEntity] = useState("Explodemon")
-  const [attribute, setAttribute] = useState("developer")
+  const [entity, setEntity] = useState("")
+  const [attribute, setAttribute] = useState("")
 
   // advanced settings
   const [continuous, setContinuous] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
 
   // advanced settings accordion
-  const [open, setOpen] = useState(false)
+  const [isPopoverOpen, setPopoverOpen] = useState(false)
   const [models, setModels] = useState<string[]>([model])
 
   // processing state
@@ -176,18 +176,19 @@ function IndexSidePanel() {
           type="single"
           collapsible
           className="w-full -mt-3"
-          defaultValue="advanced-settings">
+          // defaultValue="advanced-settings" // uncomment to open by default
+        >
           <AccordionItem value="advanced-settings">
             <AccordionTrigger>Advanced settings</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="model">Inference model</Label>
-                <Popover open={open} onOpenChange={setOpen}>
+                <Popover open={isPopoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
-                      aria-expanded={open}
+                      aria-expanded={isPopoverOpen}
                       disabled={!isServerReady}
                       className="w-full justify-between">
                       {model}
@@ -208,7 +209,7 @@ function IndexSidePanel() {
                               onSelect={(currentValue) => {
                                 if (currentValue !== model)
                                   setModel(currentValue)
-                                setOpen(false)
+                                setPopoverOpen(false)
                               }}>
                               <Check
                                 className={cn(
@@ -302,20 +303,6 @@ function IndexSidePanel() {
             </AlertDescription>
           </Alert>
         )}
-
-        {/* {response && (
-          <div>
-            <h3>Response</h3>
-            <pre>{JSON.stringify(response, null, 2)}</pre>
-          </div>
-        )}
-
-        {results.length > 0 && ( // TODO: update result visualization
-          <div>
-            <h3>Results</h3>
-            <pre>{JSON.stringify(results, null, 2)}</pre>
-          </div>
-        )} */}
 
         <div className="flex flex-1 w-full">
           <RelationGraph relations={results} />
