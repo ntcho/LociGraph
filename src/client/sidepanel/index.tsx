@@ -99,14 +99,16 @@ function IndexSidePanel() {
   const appendResults = (results: Relation[]) => {
     // remove duplicates
     results = results.filter(
-      (x) =>
-        !results.some(
-          (y) =>
-            x.entity === y.entity &&
-            x.attribute === y.attribute &&
-            x.value === y.value
+      (v, i, s) =>
+        i ===
+        s.findIndex(
+          (t) =>
+            v.entity === t.entity &&
+            v.attribute === t.attribute &&
+            v.value === t.value
         )
     )
+    console.log("Appending results", results)
     setResults((prev) => [...prev, ...results])
   }
 
@@ -150,7 +152,6 @@ function IndexSidePanel() {
       response.results.length > 0
     ) {
       appendResults(response.results)
-      console.log("results", response.results)
     }
 
     // append latest action to previous actions
