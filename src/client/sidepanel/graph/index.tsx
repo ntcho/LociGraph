@@ -112,8 +112,8 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
     if (isOrganizing) return
 
     setOrganizing(true)
-
     toggle()
+
     setTimeout(() => {
       toggle()
       setOrganizing(false)
@@ -122,7 +122,7 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
 
   return (
     <ReactFlow
-      className="floatingedges"
+      className="rounded-md border border-stone-200 dark:border-stone-800 floatingedges"
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}

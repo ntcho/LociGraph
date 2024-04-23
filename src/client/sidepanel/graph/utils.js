@@ -5,7 +5,7 @@ import { Position } from "reactflow"
 // this helper function returns the intersection point
 // of the line between the center of the intersectionNode and the target node
 function getNodeIntersection(intersectionNode, targetNode) {
-  // https://math.stackexchange.com/questions/1724792/an-algorithm-for-finding-the-intersection-point-between-a-center-of-vision-and-a
+  // https://math.stackexchange.com/questions/1724792
   const {
     width: intersectionNodeWidth,
     height: intersectionNodeHeight,
@@ -32,7 +32,7 @@ function getNodeIntersection(intersectionNode, targetNode) {
   return { x, y }
 }
 
-// returns the position (top,right,bottom or right) passed node compared to the intersection point
+// returns the edge position (top,right,bottom or right) from intersection point
 function getEdgePosition(node, intersectionPoint) {
   const n = { ...node.positionAbsolute, ...node }
   const nx = Math.round(n.x)
