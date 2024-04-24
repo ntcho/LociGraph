@@ -81,7 +81,6 @@ FLAG_ATTRIBUTE_XPATH = "locigraph-xpath"
 noise_attributes = [
     "contains(@class, 'hidden')",
     "contains(@class, 'invisible')",
-    "contains(@class, 'none')",
     "contains(@style, 'display: none')",
     "contains(@style, 'visibility: hidden')",
 ]
