@@ -6,11 +6,15 @@ from loguru import logger
 
 from utils.dev import DEV
 
+# format for log messages
 FORMAT = "<green>{time:YY-MM-DD HH:mm:ss.SSS}</> | <level>{level: <8}</> | <cyan>{file}</>:<cyan>{line}</> | {function} | <level>{message}</>"
 
+# format for log filenames
 FORMAT_LOG_FILENAME = "{time:YY-MM-DD_HH-mm-ss_SSS}"
 
+# loguru configuration
 CONFIG = {
+    # Read more: https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.configure
     "handlers": [
         {
             "sink": stderr,
@@ -30,8 +34,11 @@ CONFIG = {
     "levels": [dict(name="TRACE", color="<dim>")],
 }
 
+# default behavior for `log_func` decorator. Set to True to log function entry and exit.
+LOG_FUNC_DEFAULT: bool = False  # TODO: set to True on production
 
-def log_func(*, entry=True, exit=True, level="TRACE"):
+
+def log_func(*, entry=LOG_FUNC_DEFAULT, exit=LOG_FUNC_DEFAULT, level="TRACE"):
     """Decorator to log function entry and exit.
 
     Note:
@@ -46,30 +53,32 @@ def log_func(*, entry=True, exit=True, level="TRACE"):
         def wrapped(*args, **kwargs):
             # logger_ = log.opt(depth=1)
 
-            args_str = [f"\t- arg{i} = {repr(a)}" for i, a in enumerate(list(args))]
-            kwargs_str = [f"\t- {k} = {repr(v)}" for k, v in kwargs.items()]
-
-            args_kwargs_str = "\n".join(args_str + kwargs_str)
-
             if entry:
-                log.log(
-                    level,
-                    f"Entering '{name}'\n{args_kwargs_str}",
+                args_str = [f"\t- arg{i} = {repr(a)}" for i, a in enumerate(list(args))]
+                kwargs_str = [f"\t- {k} = {repr(v)}" for k, v in kwargs.items()]
+
+                entry_str = "\n".join(
+                    [
+                        f"Entering '{name}'",
+                        "\n".join(args_str + kwargs_str),
+                    ]
                 )
+
+                log.log(level, entry_str)
 
             start = time()
-
             result = func(*args, **kwargs)
-
             end = time()
 
-            result_str = f"\n\t- result = {repr(result)}" if result is not None else ""
-
             if exit:
-                log.log(
-                    level,
-                    f"Exiting '{name}' (exec={(end - start):f}s){result_str}",
+                exit_str = "\n".join(
+                    [
+                        f"Exiting '{name}' (exec={(end - start):f}s)",
+                        f"\t- result = {repr(result)}" if result is not None else "",
+                    ]
                 )
+
+                log.log(level, exit_str)
 
             return result
 
