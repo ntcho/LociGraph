@@ -367,7 +367,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
         if value != "":
             details["value"] = value
         if label is not None and label.text_content().strip() != "":
-            details["label"] = label.text_content().strip()
+            details["label"] = get_text_content(label, multiline=False)
 
         actions.append(
             ActionElement(
@@ -387,7 +387,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             log.warning(f"Skipping action element without xpath: {element}")
             continue
 
-        content = get_text_content(element)
+        content = get_text_content(element, multiline=False)
 
         if len(content) == 0:
             continue  # skip empty buttons
@@ -410,7 +410,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             log.warning(f"Skipping action element without xpath: {element}")
             continue
 
-        content = get_text_content(element)
+        content = get_text_content(element, multiline=False)
 
         if len(content) == 0:
             continue  # skip empty links
@@ -551,7 +551,9 @@ def simplify_html(
     return html, tree
 
 
-def get_text_content(element: HtmlElement, delimiter: str = " | ") -> str:
+def get_text_content(
+    element: HtmlElement, delimiter: str = " | ", multiline: bool = True
+) -> str:
     """Get the text content of an HTML element.
 
     Note:
@@ -562,6 +564,7 @@ def get_text_content(element: HtmlElement, delimiter: str = " | ") -> str:
         element (HtmlElement): HTML element
         delimiter (str, optional): Delimiter between text content of nested elements.
         Defaults to " | ".
+        multiline (bool, optional): Whether to keep multiline text content.
 
     Returns:
         str: Text content of the HTML element
@@ -578,6 +581,10 @@ def get_text_content(element: HtmlElement, delimiter: str = " | ") -> str:
 
     content = element.text_content()
 
+    # remove all line breaks
+    if not multiline:
+        content = sub(r"\s*\n+\s*", delimiter, content)
+
     # remove repeated delimiters
     content = sub(rf"(?: ?{de})+", delimiter, content)
 
@@ -587,7 +594,7 @@ def get_text_content(element: HtmlElement, delimiter: str = " | ") -> str:
     # remove extra spaces
     content = sub(r"[ \t]{2,}", " ", content)
 
-    # replace 3+ blank lines to 2 blank lines
+    # replace 3+ line breaks to 2 line breaks
     content = sub(r"\n{4,}", "\n\n\n", content)
 
     content = content.strip()
