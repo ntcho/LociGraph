@@ -10,6 +10,13 @@ def read_txt(file_path: str) -> str:
         return file.read()
 
 
+def write_txt(file_path: str, data: str) -> None:
+    log.info(f"Writing text file `{file_path}`")
+
+    with open(file_path, "w") as file:
+        file.write(data)
+
+
 def read_json(file_path: str):
     log.info(f"Reading json file `{file_path}`")
 
