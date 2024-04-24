@@ -13,14 +13,7 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(function ({
-        id,
-        icon,
-        title,
-        description,
-        action,
-        ...props
-      }) {
+      {toasts.map(function ({ id, icon, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
             <div className="flex flex-col items-stretch gap-2">
@@ -28,14 +21,12 @@ export function Toaster() {
                 {icon && <div className="pt-0.5 shrink-0">{icon}</div>}
                 <div className="flex flex-col gap-1">
                   {title && <ToastTitle>{title}</ToastTitle>}
-                  {description && (
-                    <ToastDescription>{description}</ToastDescription>
-                  )}
+                  {description && <ToastDescription>{description}</ToastDescription>}
                 </div>
               </div>
-              <div className="flex justify-end">{action}</div>
-              <ToastClose />
+              {action && <div className="flex justify-end">{action}</div>}
             </div>
+            <ToastClose />
           </Toast>
         )
       })}
