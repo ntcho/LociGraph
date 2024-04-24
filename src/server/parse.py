@@ -130,8 +130,8 @@ def flag_noise_elements(
     for element in html.xpath("//comment()"):
         try:
             element.drop_tree()
-        except Exception as element:
-            log.trace(f"skipped drop_tree: {element}")
+        except Exception as e:
+            log.trace(f"skipped drop_tree on {element}: {e}")
 
     # flag elements that are not visible with element class as noise
     # e.g. <div style="display: none">...</div>
@@ -313,8 +313,8 @@ def remove_noise_elements(
     for element in html.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='{FLAG_VALUE_NOISE}']"):
         try:
             element.drop_tree()
-        except Exception as element:
-            log.trace(f"skipped drop_tree: {element}")
+        except Exception as e:
+            log.trace(f"skipped drop_tree on {element}: {e}")
 
     return html, tree
 
@@ -493,29 +493,48 @@ def simplify_html(
         tree (_ElementTree): Element tree of the HTML
     """
 
+    prev_elements_count = None  # number of elements removed
+
     # replace elements with no text content with a single space
+    # e.g. <div></div> -> " "
+    log.info("Replacing elements with no text content with a single space")
     while True:
         elements = html.xpath("//*[not(normalize-space())]")
 
-        # repeat until no more elements are removed
-        if len(elements) == 0 or drop_tag(elements) is False:
+        # repeat until the number of elements found didn't change from previous iteration
+        if prev_elements_count == len(elements):
             break
+
+        drop_tag(elements)
+
+        # update the number of elements found
+        prev_elements_count = len(elements)
+
+    prev_elements_count = None  # reset the number of elements removed
 
     # remove tags from elements that contain only one child element
+    log.info("Removing tags from elements with 1 or 0 children")
     while True:
-        elements = html.xpath("//*[count(*) = 1]")
+        elements = html.xpath("//*[count(*) = 0]")
 
-        # repeat until no more elements are removed
-        if len(elements) == 0 or drop_tag(elements) is False:
+        # repeat until the number of elements found didn't change from previous iteration
+        if prev_elements_count == len(elements):
             break
+
+        drop_tag(elements)
+
+        # update the number of elements found
+        prev_elements_count = len(elements)
 
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
+    log.info("Removing cosmetic tags")
     for tag in cosmetic_tags:
         drop_tag(html.xpath(f"//{tag}"))
 
     # replace table contents with markdown-style tables
     # e.g. <tr><td>1</td><td>2</td></tr> -> 1 | 2
+    log.info("Replacing table contents with markdown-style tables")
     for table in html.xpath("//table"):
 
         # table content by line
@@ -550,6 +569,7 @@ def simplify_html(
         table.text = text
 
     # remove attributes from all elements
+    log.info("Removing attributes from all elements")
     for e in html.iter():  # type: ignore
         e.attrib.clear()
 
@@ -681,25 +701,29 @@ def filter_selectors(property: str, value: str) -> list[str]:
     return selectors
 
 
-def drop_tag(elements: list[HtmlElement]) -> bool:
+def drop_tag(elements: list[HtmlElement], delimiter: str = " ") -> int:
     """Drop the tag from the given elements and append a space to the tail.
 
     Args:
         elements (list[HtmlElement]): List of HTML elements to remove the tag from
 
     Returns:
-        bool: True if the tag was dropped successfully, False otherwise
+        int: Number of elements skipped during the operation
     """
+
+    skipped: int = 0
 
     for element in elements:
         try:
-            element.tail = " " + element.tail if element.tail is not None else " "  # type: ignore
+            element.tail = (
+                delimiter + element.tail if element.tail is not None else delimiter  # type: ignore
+            )
             element.drop_tag()
         except Exception as e:
-            log.trace(f"skipped drop_tag on element {element}: {e}")
-            return False
+            log.trace(f"skipped drop_tag on {element}: {e}")
+            skipped += 1
 
     if len(elements) > 0:
-        log.trace(f"drop_tag {len(elements)} elements")
+        log.trace(f"dropped tags for {len(elements) - skipped} elements")
 
-    return True
+    return skipped
