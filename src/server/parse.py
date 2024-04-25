@@ -495,33 +495,25 @@ def simplify_html(
         tree (_ElementTree): Element tree of the HTML
     """
 
+    # drop tags for `aria-hidden="true"` elements
+    log.info("Dropping tags for `aria-hidden='true'` elements")
+    drop_tag(html.xpath("//*[@aria-hidden='true']"))
+
     # remove attributes from all elements
     log.info("Removing attributes from all elements")
     for e in html.iter():  # type: ignore
         e.attrib.clear()
 
-    prev_elements_count = None  # number of elements removed
-
     # replace elements with no text content with a single space
     # e.g. <div></div> -> " "
     log.info("Replacing elements with no text content with a single space")
-    while True:
-        elements = html.xpath("//*[not(normalize-space())]")
-
-        # repeat until the number of elements found didn't change from previous iteration
-        if prev_elements_count == len(elements):
-            break
-
-        drop_tag(elements)
-
-        # update the number of elements found
-        prev_elements_count = len(elements)
+    drop_tag_from_xpath(html, "//*[not(normalize-space())]")
 
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
     log.info("Removing cosmetic tags")
     for tag in cosmetic_tags:
-        drop_tag(html.xpath(f"//{tag}"), delimiter="")
+        drop_tag_from_xpath(html, f"//{tag}")
 
     # replace table contents with markdown-style tables
     # e.g. <tr><td>1</td><td>2</td></tr> -> 1 | 2
@@ -559,21 +551,9 @@ def simplify_html(
 
         simplify_element_text(table, text)
 
-    prev_elements_count = None  # reset the number of elements removed
-
     # remove tags from elements that contain only one child element
     log.info("Removing tags from elements with 1 children")
-    while True:
-        elements = html.xpath("//*[count(*) = 1 and not(normalize-space(text()))]")
-
-        # repeat until the number of elements found didn't change from previous iteration
-        if prev_elements_count == len(elements):
-            break
-
-        drop_tag(elements)
-
-        # update the number of elements found
-        prev_elements_count = len(elements)
+    drop_tag_from_xpath(html, "//*[count(*) = 1 and not(normalize-space(text()))]")
 
     # replace list contents with markdown-style lists
     # e.g. <ul><li>1</li> ... </ul> -> <ul> - 1 ...</ul>
@@ -602,6 +582,29 @@ def simplify_html(
         simplify_element_text(ol, text)
 
     return html, tree
+
+
+def drop_tag_from_xpath(root: HtmlElement, xpath: str):
+    """Drop the tag from the elements found by the given xpath until no more elements
+    are found.
+
+    Args:
+        root (HtmlElement): Root element to search for elements
+        xpath (str): XPath selector to find elements to drop the tag from
+    """
+    prev_elements_count = None  # reset the number of elements removed
+
+    while True:
+        elements = root.xpath(xpath)
+
+        # repeat until the number of elements found didn't change from previous iteration
+        if prev_elements_count == len(elements):
+            break
+
+        drop_tag(elements)
+
+        # update the number of elements found
+        prev_elements_count = len(elements)
 
 
 def drop_tag(elements: list[HtmlElement], delimiter: str = " ") -> int:
