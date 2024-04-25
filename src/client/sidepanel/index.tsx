@@ -103,9 +103,7 @@ function IndexSidePanel() {
         i ===
         s.findIndex(
           (t) =>
-            v.entity === t.entity &&
-            v.attribute === t.attribute &&
-            v.value === t.value
+            v.entity === t.entity && v.attribute === t.attribute && v.value === t.value
         )
     )
     console.log("Appending results", results)
@@ -146,11 +144,7 @@ function IndexSidePanel() {
     }
 
     // append results to previous results
-    if (
-      response.error == null &&
-      response.results &&
-      response.results.length > 0
-    ) {
+    if (response.error == null && response.results && response.results.length > 0) {
       appendResults(response.results)
     }
 
@@ -160,11 +154,7 @@ function IndexSidePanel() {
     }
 
     // continue processing if continuous mode is enabled
-    if (
-      continuous &&
-      response.error === null &&
-      response.isComplete === false
-    ) {
+    if (continuous && response.error === null && response.isComplete === false) {
       processPage()
     }
   }
@@ -246,8 +236,7 @@ function IndexSidePanel() {
                               key={id}
                               value={id}
                               onSelect={(currentValue) => {
-                                if (currentValue !== model)
-                                  setModel(currentValue)
+                                if (currentValue !== model) setModel(currentValue)
                                 setPopoverOpen(false)
                               }}>
                               <Check
@@ -315,8 +304,8 @@ function IndexSidePanel() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Warning</AlertTitle>
             <AlertDescription>
-              Autonomous mode is enabled. LociGraph will interact with the page
-              without your input.
+              Autonomous mode is enabled. LociGraph will interact with the page without
+              your input.
             </AlertDescription>
           </Alert>
         )}
