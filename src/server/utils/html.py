@@ -38,8 +38,8 @@ def indent(text: str, tab_size: int = 2, bullet: str | None = None) -> str:
 
     Args:
         text (str): Text content to indent
-        bullet (str, optional): Bullet to use for indentation. Defaults to "- ".
-        use_bullet (bool, optional): Whether to use the bullet for the first line.
+        tab_size (int, optional): Indentation size. Defaults to 2.
+        bullet (str, optional): Bullet point style. Defaults to None.
 
     Returns:
         str: Indented text content
@@ -76,15 +76,10 @@ def get_text_content(
 ) -> str:
     """Get the text content of an HTML element.
 
-    Note:
-        This function will add `|` (or given delimiter) between text content of
-        nested elements.
-
     Args:
-        element (HtmlElement): HTML element
-        delimiter (str, optional): Delimiter between text content of nested elements.
-        Defaults to " | ".
-        multiline (bool, optional): Whether to keep multiline text content.
+        element (HtmlElement): HTML element to extract text content
+        multiline (bool, optional): Return text content as multiline. Defaults to True.
+        bullet (str, optional): Bullet point style. Defaults to "-".
 
     Returns:
         str: Text content of the HTML element
@@ -97,7 +92,12 @@ def get_text_content(
     lines: list[str] = []
     nodes: list = element.xpath("node()")
 
-    for node in nodes:
+    # remove empty nodes
+    for i, node in enumerate(nodes):
+        if str(node).strip() == "":
+            del nodes[i]
+
+    for i, node in enumerate(nodes):
 
         # process element nodes
         if type(node) is HtmlElement:
@@ -106,7 +106,12 @@ def get_text_content(
             text = get_text_content(node, multiline, bullet)
 
             if multiline:
-                lines.append(indent(text))
+                if i == 0:
+                    # skip indentation if this is the first and only element node
+                    # this keeps the first element node indentation consistent
+                    lines.append(text)
+                else:
+                    lines.append(indent(text))
             else:
                 lines.append(text)
 
@@ -117,14 +122,31 @@ def get_text_content(
                 text = re.sub(r"\s*\n\s*", "\n", text).strip()
 
                 if multiline:
-                    lines.append(indent(text, bullet=bullet))
+                    if len(nodes) == 1:
+                        # skip indentation if this is the only text node
+                        lines.append(text)
+                    else:
+                        lines.append(indent(text, bullet=bullet))
                 else:
                     lines.append(", ".join([t for t in text.split("\n")]))
 
+    result = None
+
     if multiline:
-        return "\n".join(lines)
+        result = "\n".join(lines)
+
+        # add bullet points if first line is missing indentation
+        if (
+            bullet is not None
+            and len(lines) > 1
+            and result.startswith(bullet) is False
+            and result.startswith(" ") is False
+        ):
+            result = indent(result, bullet=bullet)
     else:
-        return "; ".join(lines)
+        result = "; ".join(lines)
+
+    return result
 
 
 def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
