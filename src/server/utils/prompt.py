@@ -43,14 +43,15 @@ Timbuktu High School
 Mathematics
 ```
 Query: [Alex, educated at, ?]
-Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. The content provides that Alex studied Computer Science at Bard College. Since this is related to Alex, we should extract the relation [Alex, educated at, Bard College] and [Bard College, academic major, Computer Science]. Additionally, the content provides that Bard College offers Computer Science. Since this is a valid relation, we should extract the relation [Bard College, offers, Computer Science] as an additional relation. The content also provides that Alex studied Mathematics at Timbuktu High School. Since this is related to Alex, we should extract the relation [Alex, educated at, Timbuktu High School].
+Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. The content provides that Alex studied Computer Science at Bard College. Since this is a factual relation and related to query, we should extract the relation [Alex, educated at, Bard College] and [Bard College, studied, Computer Science]. Additionally, the content provides that Bard College offers Computer Science. Since this is a factual relation, we should extract the relation [Bard College, offers, Computer Science] as an additional relation. The content also provides that Alex studied Mathematics at Timbuktu High School. Since this is a factual relation and related to query, we should extract the relation [Alex, educated at, Timbuktu High School] and [Alex, studied, Mathematics].
 Output:
 Query relations:
 - [Alex, educated at, Bard College]
 - [Alex, educated at, Timbuktu High School]
 Additional relations:
-- [Alex, academic major, Computer Science]
+- [Alex, studied, Computer Science]
 - [Bard College, offers, Computer Science]
+- [Alex, studied, Mathematics]
 
 Title: `Alex - Wikipedia`
 Content:
@@ -78,7 +79,7 @@ Please RSVP for Alex's birthday party this Friday at 7:00 PM.
 Thanks!
 ```
 Query: [Alex, date of birth, ?]
-Reasoning: Let's think step by step. We need to find the date of birth of Alex. The content provides that Alex's birthday party is this Friday at 7:00 PM. Since this is not the date of birth, we should write `No relations found`.
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. The content provides that Alex's birthday party is this Friday at 7:00 PM. Since this content doesn't provide the date of birth, we should write `No relations found`.
 Output:
 No relations found
 """
@@ -203,28 +204,37 @@ Query: [Alex, date of birth, ?]
 Extraction results:
 - [Alex, born on, 2000]
 - [Alex, birthday, January 1, 2000]
-Reasoning: Let's think step by step. We need to find the date of birth of Alex. [Alex, born on, 2000] is incorrect because it only provides the year of birth. [Alex, birthday, January 1st, 2000] is correct because it provides the date of birth as January 1st, 2000. Since at least one extraction result is correct, we should `STOP`.
+- [Alex, born in, New York]
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. [Alex, born on, 2000] only provides the year of birth, therefore this is incorrect. [Alex, birthday, January 1st, 2000] provides the date of birth as `January 1st, 2000`, therefore this is correct. [Alex, born in, New York] is not related to date of birth, but it is related to the entity Alex, therefore this is relevant. Since at least one extraction result is correct, we should `STOP`.
 Answer: STOP
 Correct relation:
 - [Alex, date of birth, January 1, 2000]
+Relevant relation:
+- [Alex, place of birth, New York]
 
 Query: [Alex, educated at, ?]
 Extraction results:
 - [Alex, studied, Computer Science]
 - [Alex, graduated in, 2020]
-Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. [Alex, studied, Computer Science] is incorrect because it only provides the academic major. [Alex, graduated in, 2020] is incorrect because it only provides the year of graduation. Since none of the extraction results are correct, we should `CONTINUE`.
+Reasoning: Let's think step by step. We need to find the institution where Alex was educated at. [Alex, studied, Computer Science] it only provides the academic major, but it is related to the entity Alex, therefore this is relevant. [Alex, graduated in, 2020] only provides the year of graduation, bus it is related to the entity Alex, therefore this is relevant. Since none of the extraction results are correct, we should `CONTINUE`.
 Answer: CONTINUE
+Relevant relations:
+- [Alex, studied, Computer Science]
+- [Alex, graduated in, 2020]
 
 Query: [Alex, ?, ?]
 Extraction results:
 - [Alex, works at, ACME Inc]
 - [ACME Inc, location, New York]
 - [Alex, job title, software engineer]
-Reasoning: Let's think step by step. We need to find all relevant relations for Alex. [Alex, works at, ACME Inc] is correct because it provides the company where Alex works. [ACME Inc, location, New York] is incorrect because it provides the location of the company. [Alex, job title, software engineer] is correct because it provides the job title of Alex. Since at least one extraction result is correct, we should `STOP`.
+- [Foo Corp, headquarters, San Francisco]
+Reasoning: Let's think step by step. We need to find all relevant relations for Alex. [Alex, works at, ACME Inc] provides that Alex works at `ACME Inc`, therefore this is correct. [ACME Inc, location, New York] only provides the location of the company, but it is related to the entity Alex, therefore this is relevant. [Alex, job title, software engineer] provides the job title of Alex, therefore this is correct. [Foo Corp, headquarters, San Francisco] is not related to Alex nor the query, therefore this is incorrect. Since at least one extraction result is correct, we should `STOP`.
 Answer: STOP
 Correct relations:
 - [Alex, works at, ACME Inc]
 - [Alex, job title, software engineer]
+Relevant relations:
+- [ACME Inc, location, New York]
 """
 
 evaluate_prompt_template = """
