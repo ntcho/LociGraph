@@ -52,7 +52,7 @@ def filter(
         tuple[list[Element], list[ActionElement]]: The filtered elements and action elements.
     """
 
-    keywords: list[tuple[str, Relevancy]] = get_top_keywords(query)
+    keywords: list[tuple[str, Relevancy]] = get_top_keywords(query, data.title)
 
     elements = filter_elements(data, keywords)
     action_elements = filter_action_elements(data, keywords)
@@ -60,11 +60,12 @@ def filter(
     return elements, action_elements
 
 
-def get_top_keywords(query: RelationQuery, k: int = 25) -> list[tuple[str, Relevancy]]:
+def get_top_keywords(query: RelationQuery, title: str | None, k: int = 25) -> list[tuple[str, Relevancy]]:
     """Get the top K keywords from the given list of keywords.
 
     Args:
         keywords (list[str]): The list of keywords to get the top K keywords from.
+        title (str): The title of the webpage.
         k (int): The number of top keywords to get.
 
     Returns:
@@ -76,9 +77,16 @@ def get_top_keywords(query: RelationQuery, k: int = 25) -> list[tuple[str, Relev
         raise ValueError("Invalid value for `k`.")
 
     results: list[tuple[str, Relevancy]] = []  # [(keyword, relevance), ...]
+    
+    entity_relevancy = Relevancy.HIGHEST
+    
+    if title is not None:
+        if query.entity.lower() in title.lower():
+            # lower relevancy since the webpage is already about the entity
+            entity_relevancy = Relevancy.HIGH
 
     # add name of entity to keywords
-    results.append((query.entity, Relevancy.HIGHEST))
+    results.append((query.entity, entity_relevancy))
 
     # add all keywords + extended keywords from the attribute
     if query.attribute is not None:
