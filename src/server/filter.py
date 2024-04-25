@@ -369,10 +369,14 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
 
         # add all WikiData property aliases
         try:
+            log.info(f"found alias {index[keyword]}")
+            
             for k in index[keyword]:
-                results.append((k, Relevancy.HIGHEST))
+                for word in k.split():
+                    if word not in stopwords:
+                        results.append((word, Relevancy.HIGHEST))
+                        log.debug(f"  alias: added '{word}'")
 
-            log.debug(f"  alias: added {index[keyword]}")
         except KeyError:
             pass  # no aliases found
 
@@ -381,7 +385,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
 
         # add all parts of the keyword without stopwords
         # e.g. "studied at" -> ["studied at", "studied"] ("at" is a stopword)
-        for word in keyword.split(" "):
+        for word in keyword.split():
             if word not in stopwords:
                 all_keywords.append(word)
 
