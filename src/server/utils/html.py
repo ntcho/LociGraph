@@ -144,7 +144,7 @@ def get_text_content(
         ):
             result = indent(result, bullet=bullet)
     else:
-        result = "; ".join(lines)
+        result = "; ".join([l.strip() for l in lines if l.strip() != ""])
 
     return result
 
