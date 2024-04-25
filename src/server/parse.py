@@ -520,6 +520,9 @@ def simplify_html(
     log.info("Replacing table contents with markdown-style tables")
     for table in html.xpath("//table"):
 
+        if len(table.xpath(".//table")) > 0:
+            continue  # skip nested tables
+
         # table content by line
         captions: list[str] = []
         contents: list[str] = []
