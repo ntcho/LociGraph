@@ -154,7 +154,7 @@ def get_keyword_xpath_query(keywords: list[str]) -> str | None:
     xpath_query = " | ".join(
         # match whole words with case-insensitive regex with multiple spaces
         # e.g. "studied at" matches text with irregular spaces "Alex   studied  at Bard College"
-        [f"//*[re:test(text(), '\\b{sub(r" ", " +", keyword)}\\b', 'i')]" for keyword in keywords]
+        [f"//*[re:test(text(), '{sub(r" ", " +", keyword)}', 'i')]" for keyword in keywords]
     )
 
     return xpath_query
@@ -186,13 +186,14 @@ def filter_elements(
     results: list[Element] = []
 
     for xpath_query, keyword_group, content_relevancy in xpath_queries:
-        log.info(f"Filtering elements with XPath query (len={len(xpath_query)})")
-        log.trace(
-            f"Filtering elements with XPath query [relevancy={content_relevancy}, query=`{xpath_query}`]"
-        )
+        log.info(f"Filtering elements with XPath query (len={len(xpath_query)}, keywords={keyword_group})")
 
-        # filter elements with the XPath query
-        xpath_eval: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
+        try:
+            # filter elements with the XPath query
+            xpath_elements: list[HtmlElement] = html.xpath(xpath_query, namespaces=regexpNS)
+        except Exception as e:
+            log.exception(e)
+            continue
 
         # create Element objects from the filtered elements
         filtered_elements: list[Element] = []
@@ -200,7 +201,7 @@ def filter_elements(
         # content must be at least the length of the longest keyword
         minimum_length = max(keyword_group, key=len)
 
-        for element in xpath_eval:
+        for element in xpath_elements:
             content = get_text_content(element)
             
             while len(content) < len(minimum_length):
