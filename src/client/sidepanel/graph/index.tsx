@@ -33,10 +33,6 @@ const arrowMarker = {
   height: 24
 }
 
-const nodeTypes: NodeTypes = { relation: RelationNode }
-// @ts-ignore
-const edgeTypes: EdgeTypes = { relation: RelationEdge }
-
 // helper function to replace spaces with underscores
 const get_id = (string: string) => string.replace(/\s+/g, "_")
 
@@ -47,6 +43,10 @@ const id_exists = (id: string, nodes: any[]) =>
 function RelationGraph({ relations }: { relations: Relation[] }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+
+  const nodeTypes: NodeTypes = useMemo(() => ({ relation: RelationNode }), [])
+  // @ts-ignore
+  const edgeTypes: EdgeTypes = useMemo(() => ({ relation: RelationEdge }), [])
 
   const [isAutoLayoutInitialized, organizeAutoLayout, isAutoLayoutEnabled] =
     useAutoLayout()
