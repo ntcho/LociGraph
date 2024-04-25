@@ -6,6 +6,7 @@ import type {
   RequestBody as CommandRequestBody,
   ResponseBody as CommandResponseBody
 } from '~background/messages/send-command';
+import { getActionDescription } from '~lib/utils';
 
 import type { Action } from "~types";
 
@@ -82,11 +83,10 @@ const executeAction = (req: RequestBody): ResponseBody => {
       return { error: `Element not found with xpath=${action.element.xpath}` }
     }
 
-    const actionValue = action.value ? " '" + action.value + "'" : ""
-    const actionString = `${action.type} [${action.element.xpath}]${actionValue}`
+    const actionDescription = getActionDescription(action)
 
     // confirm before executing action if continuous mode is off
-    if (req.continuous || confirm(`Confirm executing action \`${actionString}\`?`)) {
+    if (req.continuous || confirm(`Confirm executing action \`${actionDescription}\`?`)) {
       switch (action.type) {
         case "CLICK":
           clickElement(element)
@@ -102,11 +102,11 @@ const executeAction = (req: RequestBody): ResponseBody => {
           return { error: "Unsupported action type" }
       }
 
-      console.info(`Executed action \`${actionString}\``)
+      console.info(`Executed action \`${actionDescription}\``)
 
       return { error: null }
     } else {
-      console.info(`Cancelled action \`${actionString}\``)
+      console.info(`Cancelled action \`${actionDescription}\``)
       return { error: "Action cancelled" }
     }
 
