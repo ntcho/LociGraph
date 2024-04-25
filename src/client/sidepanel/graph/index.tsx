@@ -10,6 +10,7 @@ import ReactFlow, {
   useReactFlow,
   useStore,
   type EdgeTypes,
+  type NodeChange,
   type NodeTypes
 } from "reactflow"
 
@@ -47,8 +48,8 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
 
-  // @ts-expect-error
-  const [initialised, { toggle, isRunning }] = useLayoutedElements()
+  const [isAutoLayoutInitialized, organizeAutoLayout, isAutoLayoutEnabled] =
+    useAutoLayout()
 
   useEffect(() => {
     // cooridnates of the next node; add new nodes to the left bottom corner
@@ -114,18 +115,16 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
     setEdges([...edges, ...newEdges])
   }, [relations])
 
-  const [isOrganizing, setOrganizing] = useState(false)
-
-  const organizeGraph = () => {
-    if (isOrganizing) return
-
-    setOrganizing(true)
-    toggle()
-
-    setTimeout(() => {
-      toggle()
-      setOrganizing(false)
-    }, 2000)
+  const onNodesChangeHandler = (changes: NodeChange[]) => {
+    onNodesChange(changes)
+    for (const change of changes) {
+      if (change.type === "dimensions") {
+        setTimeout(() => {
+          document.getElementById("organize-auto-layout")?.click()
+        }, 100)
+        break
+      }
+    }
   }
 
   return (
@@ -133,7 +132,7 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
       className="rounded-md border border-stone-200 dark:border-stone-800 floatingedges"
       nodes={nodes}
       edges={edges}
-      onNodesChange={onNodesChange}
+      onNodesChange={onNodesChangeHandler}
       onEdgesChange={onEdgesChange}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
@@ -141,13 +140,14 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
       nodesConnectable={false} // disable editing edges
       fitView>
       <Panel position="top-right">
-        {initialised && (
+        {isAutoLayoutInitialized && (
           <Button
+            id="organize-auto-layout"
             variant="outline"
             size="icon"
-            onClick={organizeGraph}
-            disabled={isOrganizing}>
-            {isOrganizing ? (
+            onClick={() => organizeAutoLayout(5000)}
+            disabled={isAutoLayoutEnabled}>
+            {isAutoLayoutEnabled ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
             ) : (
               <GroupIcon className="h-5 w-5" />
@@ -182,24 +182,44 @@ const simulation = forceSimulation()
   .alphaTarget(0.05)
   .stop()
 
-const useLayoutedElements = () => {
+const useAutoLayout = () => {
   const { getNodes, setNodes, getEdges, fitView } = useReactFlow()
+
   const initialised = useStore((store) =>
     [...store.nodeInternals.values()].every((node) => node.width && node.height)
   )
 
-  return useMemo(() => {
+  return useMemo<[boolean, (duration: number) => boolean, boolean]>(() => {
     let nodes = getNodes().map((node) => ({
       ...node,
       x: node.position.x,
       y: node.position.y
     }))
     let edges = getEdges().map((edge) => edge)
-    let running = false
+    let enabled = false
+
+    const ready = initialised && nodes.length > 0
+
+    const organize = (duration: number) => {
+      if (!ready) return false // signal that the simulation can't be started
+      if (enabled) return true // signal that the simulation is already running
+
+      enabled = true
+
+      // Start the simulation
+      window.requestAnimationFrame(tick)
+
+      // Stop the simulation after the duration
+      setTimeout(() => {
+        enabled = false
+      }, duration)
+
+      return enabled
+    }
 
     // If React Flow hasn't initialised our nodes with a width and height yet, or
     // if there are no nodes in the flow, then we can't run the simulation!
-    if (!initialised || nodes.length === 0) return [false, {}]
+    if (!ready) return [false, organize, enabled]
 
     simulation.nodes(nodes).force(
       "link",
@@ -240,18 +260,13 @@ const useLayoutedElements = () => {
         fitView()
 
         // If the simulation isn't stopped, schedule another tick.
-        if (running) tick()
+        if (enabled) tick()
       })
+
+      return [true, organize, enabled]
     }
 
-    const toggle = () => {
-      running = !running
-      running && window.requestAnimationFrame(tick)
-    }
-
-    const isRunning = () => running
-
-    return [true, { toggle, isRunning }]
+    return [true, organize, enabled]
   }, [initialised])
 }
 
