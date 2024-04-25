@@ -1,6 +1,7 @@
-// From https://reactflow.dev/examples/edges/floating-edges
-
+import { quadtree } from "d3-quadtree"
 import { Position } from "reactflow"
+
+// From https://reactflow.dev/examples/edges/floating-edges
 
 // this helper function returns the intersection point
 // of the line between the center of the intersectionNode and the target node
@@ -33,23 +34,40 @@ function getNodeIntersection(intersectionNode, targetNode) {
 }
 
 // returns the edge position (top,right,bottom or right) from intersection point
-function getEdgePosition(node, intersectionPoint) {
-  const n = { ...node.positionAbsolute, ...node }
-  const nx = Math.round(n.x)
-  const ny = Math.round(n.y)
-  const px = Math.round(intersectionPoint.x)
-  const py = Math.round(intersectionPoint.y)
+function getEdgePosition(intersectionNode, targetNode, intersectionPoint) {
+  const { x: tx, y: ty } = targetNode.positionAbsolute // left top corner of the node
+  const { x: sx, y: sy } = intersectionNode.positionAbsolute // left top corner of the node
 
-  if (px <= nx + 1) {
+  const ix = intersectionPoint.x
+  const iy = intersectionPoint.y
+
+  const tn = targetNode
+
+  // use intersection point first
+  if (ix <= tx + 0.01) {
     return Position.Left
   }
-  if (px >= nx + n.width - 1) {
+  if (ix + 0.01 >= tx + tn.width) {
     return Position.Right
   }
-  if (py <= ny + 1) {
+  if (iy <= ty + 0.01) {
     return Position.Top
   }
-  if (py >= n.y + n.height - 1) {
+  if (iy + 0.01 >= ty + tn.height) {
+    return Position.Bottom
+  }
+
+  // use target node center as fallback
+  if (sx <= tx + 0.01) {
+    return Position.Left
+  }
+  if (sx + 0.01 >= tx + tn.width) {
+    return Position.Right
+  }
+  if (sy <= ty + 0.01) {
+    return Position.Top
+  }
+  if (sy + 0.01 >= ty + tn.height) {
     return Position.Bottom
   }
 
@@ -61,8 +79,8 @@ export function getEdgeParams(source, target) {
   const sourceIntersectionPoint = getNodeIntersection(source, target)
   const targetIntersectionPoint = getNodeIntersection(target, source)
 
-  const sourcePos = getEdgePosition(source, sourceIntersectionPoint)
-  const targetPos = getEdgePosition(target, targetIntersectionPoint)
+  const sourcePos = getEdgePosition(target, source, sourceIntersectionPoint)
+  const targetPos = getEdgePosition(source, target, targetIntersectionPoint)
 
   return {
     sx: sourceIntersectionPoint.x,
@@ -72,4 +90,52 @@ export function getEdgeParams(source, target) {
     sourcePos,
     targetPos
   }
+}
+
+// From https://reactflow.dev/learn/layouting/layouting#d3-force
+
+export function collide() {
+  let nodes = []
+  let force = (alpha) => {
+    const tree = quadtree(
+      nodes,
+      (d) => d.x,
+      (d) => d.y
+    )
+
+    for (const node of nodes) {
+      const r = node.width / 2
+      const nx1 = node.x - r
+      const nx2 = node.x + r
+      const ny1 = node.y - r
+      const ny2 = node.y + r
+
+      tree.visit((quad, x1, y1, x2, y2) => {
+        if (!quad.length) {
+          do {
+            if (quad.data !== node) {
+              const r = node.width / 2 + quad.data.width / 2
+              let x = node.x - quad.data.x
+              let y = node.y - quad.data.y
+              let l = Math.hypot(x, y)
+
+              if (l < r) {
+                l = ((l - r) / l) * alpha
+                node.x -= x *= l
+                node.y -= y *= l
+                quad.data.x += x
+                quad.data.y += y
+              }
+            }
+          } while ((quad = quad.next))
+        }
+
+        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1
+      })
+    }
+  }
+
+  force.initialize = (newNodes) => (nodes = newNodes)
+
+  return force
 }

@@ -16,21 +16,15 @@ import ReactFlow, {
 import "reactflow/dist/style.css"
 import "./index.css"
 
-import {
-  forceLink,
-  forceManyBody,
-  forceSimulation,
-  forceX,
-  forceY
-} from "d3-force"
-import { GroupIcon, LoaderCircle, Moon, Sun } from "lucide-react"
+import { forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force"
+import { GroupIcon, LoaderCircle } from "lucide-react"
 
 import { Button } from "~components/ui/button"
 import type { Relation } from "~types"
 
-import { collide } from "./collide.js"
 import RelationEdge from "./RelationEdge"
 import RelationNode from "./RelationNode"
+import { collide } from "./utils"
 
 const arrowMarker = {
   type: MarkerType.Arrow,
@@ -211,40 +205,41 @@ const useLayoutedElements = () => {
       "link",
       forceLink(edges)
         // @ts-ignore
-        .id((d) => d.id)
+        .id((edge) => edge.id)
         .strength(0.05)
-        .distance(50)
+        .distance((edge) =>
+          // The distance between the nodes is proportional to the length of edge label
+          edge.data.label ? edge.data.label.length * 5 + 100 : 100
+        )
     )
 
     // The tick function is called every animation frame while the simulation is
     // running and progresses the simulation one step forward each time.
     const tick = () => {
+      // Prepare the nodes for the simulation by fixing the position
       getNodes().forEach((node, i) => {
-        const dragging = Boolean(
-          document.querySelector(`[data-id="${node.id}"].dragging`)
-        )
-
         // Setting the fx/fy properties of a node tells the simulation to "fix"
         // the node at that position and ignore any forces that would normally
         // cause it to move.
 
         // @ts-ignore
-        nodes[i].fx = dragging ? node.position.x : null
+        nodes[i].fx = node.dragging ? node.position.x : null
         // @ts-ignore
-        nodes[i].fy = dragging ? node.position.y : null
+        nodes[i].fy = node.dragging ? node.position.y : null
       })
 
+      // Run the simulation one step forward
       simulation.tick()
-      setNodes(
-        nodes.map((node) => ({ ...node, position: { x: node.x, y: node.y } }))
-      )
+
+      // Update the nodes with the new positions
+      setNodes(nodes.map((node) => ({ ...node, position: { x: node.x, y: node.y } })))
 
       window.requestAnimationFrame(() => {
         // Give React and React Flow a chance to update and render the new node
         // positions before we fit the viewport to the new layout.
         fitView()
 
-        // If the simulation hasn't be stopped, schedule another tick.
+        // If the simulation isn't stopped, schedule another tick.
         if (running) tick()
       })
     }
