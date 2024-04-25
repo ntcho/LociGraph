@@ -1,14 +1,20 @@
 from utils.logging import log, log_func
 
 
+import re
 from base64 import b64decode
-from re import sub, escape, MULTILINE
 from pprint import pformat
 
 from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
 from tinycss2 import parse_stylesheet, serialize
 
+from utils.html import (
+    flatten_element,
+    get_text_content,
+    filter_selectors,
+    parse_css_to_ast,
+)
 from dtos import (
     ActionElement,
     ActionElementType,
@@ -59,6 +65,11 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     html, tree = remove_noise_elements(html, tree)
     actions = get_action_elements(html, tree)
     html, tree = simplify_html(html, tree)
+
+    from utils.file import write_txt
+    from lxml.html import tostring
+
+    write_txt("test.txt", tostring(html, encoding="unicode"))  # type: ignore
 
     return ParsedWebpageData(
         data.url,
@@ -151,7 +162,7 @@ def flag_noise_elements(
     selectors = []
 
     for property, value in noise_styles:
-        selectors.extend(filter_selectors(property, value))
+        selectors.extend(filter_selectors(all_rules, property, value))
 
     for selector in selectors:
         try:
@@ -242,7 +253,7 @@ def flag_action_elements(
     # all <a> elements with non-empty text content
     links.extend(html.xpath("//a[string-length(text()) > 0]"))
     # all elements with `cursor: pointer` style with non-empty text content
-    for selector in filter_selectors("cursor", "pointer"):
+    for selector in filter_selectors(all_rules, "cursor", "pointer"):
         try:
             links.extend(
                 [
@@ -510,27 +521,11 @@ def simplify_html(
         # update the number of elements found
         prev_elements_count = len(elements)
 
-    prev_elements_count = None  # reset the number of elements removed
-
-    # remove tags from elements that contain only one child element
-    log.info("Removing tags from elements with 1 or 0 children")
-    while True:
-        elements = html.xpath("//*[count(*) = 0]")
-
-        # repeat until the number of elements found didn't change from previous iteration
-        if prev_elements_count == len(elements):
-            break
-
-        drop_tag(elements)
-
-        # update the number of elements found
-        prev_elements_count = len(elements)
-
     # remove tags that are purely cosmetic
     # e.g. <div>hello <span>world</span></div> -> <div>hello world</div>
     log.info("Removing cosmetic tags")
     for tag in cosmetic_tags:
-        drop_tag(html.xpath(f"//{tag}"))
+        drop_tag(html.xpath(f"//{tag}"), delimiter="")
 
     # replace table contents with markdown-style tables
     # e.g. <tr><td>1</td><td>2</td></tr> -> 1 | 2
@@ -544,7 +539,7 @@ def simplify_html(
         # read table content from <tr> tags
         for row in table.xpath(".//tr"):
             text = " | ".join(
-                [get_text_content(c, delimiter="; ") for c in row.iterchildren()]
+                [get_text_content(c, multiline=False) for c in row.iterchildren()]
             )
 
             if len(text) > 0 and row.getparent() is not None:
@@ -564,9 +559,51 @@ def simplify_html(
                 captions.append(f"[{text}]")
 
         # flatten the table into markdown-style text
-        text = "\n\n```table\n" + "\n".join(captions + contents) + "\n```\n\n"
-        table.clear()
-        table.text = text
+        flattened_content = (
+            "\n\n```table\n" + "\n".join(captions + contents) + "\n```\n\n"
+        )
+
+        flatten_element(table, flattened_content)
+
+    prev_elements_count = None  # reset the number of elements removed
+
+    # remove tags from elements that contain only one child element
+    log.info("Removing tags from elements with 1 children")
+    while True:
+        elements = html.xpath("//*[count(*) = 1 and not(normalize-space(text()))]")
+
+        # repeat until the number of elements found didn't change from previous iteration
+        if prev_elements_count == len(elements):
+            break
+
+        drop_tag(elements)
+
+        # update the number of elements found
+        prev_elements_count = len(elements)
+
+    # replace list contents with markdown-style lists
+    # e.g. <ul><li>1</li> ... </ul> -> <ul> - 1 ...</ul>
+    log.info("Replacing list contents with markdown-style lists")
+    for ul in html.xpath("//ul") + html.xpath("//menu"):
+        text = "\n".join(
+            # add bullet point to each list item
+            ["- " + get_text_content(li, multiline=False) for li in ul.xpath(".//li")]
+        )
+
+        ul.clear()
+        ul.text = "\n" + text + "\n"
+
+    for ol in html.xpath("//ol"):
+        text = "\n".join(
+            # add index to each list item
+            [
+                f"{i}. " + get_text_content(li, multiline=False)
+                for i, li in enumerate(ol.xpath(".//li"))
+            ]
+        )
+
+        ol.clear()
+        ol.text = "\n" + text + "\n"
 
     # remove attributes from all elements
     log.info("Removing attributes from all elements")
@@ -574,131 +611,6 @@ def simplify_html(
         e.attrib.clear()
 
     return html, tree
-
-
-def get_text_content(
-    element: HtmlElement, delimiter: str = " | ", multiline: bool = True
-) -> str:
-    """Get the text content of an HTML element.
-
-    Note:
-        This function will add `|` (or given delimiter) between text content of
-        nested elements.
-
-    Args:
-        element (HtmlElement): HTML element
-        delimiter (str, optional): Delimiter between text content of nested elements.
-        Defaults to " | ".
-        multiline (bool, optional): Whether to keep multiline text content.
-
-    Returns:
-        str: Text content of the HTML element
-    """
-
-    # create a deep copy of the element to prevent modifying the original element
-    element = element.__deepcopy__(None)
-
-    de = escape(delimiter.strip())  # escaped delimiter
-
-    # add delimiter between text content of nested elements
-    for child in element.iter(None):
-        child.tail = delimiter + child.tail if child.tail is not None else delimiter
-
-    content = element.text_content()
-
-    # remove all line breaks
-    if not multiline:
-        content = sub(r"\s*\n+\s*", delimiter, content)
-
-    # remove repeated delimiters
-    content = sub(rf"(?: ?{de})+", delimiter, content)
-
-    # remove trailing and leading spaces, tabs or delimiters
-    content = sub(rf"(?:^[ \t{de}]*)|(?:[ \t{de}]*$)", "", content, flags=MULTILINE)
-
-    # remove extra spaces
-    content = sub(r"[ \t]{2,}", " ", content)
-
-    # replace 3+ line breaks to 2 line breaks
-    content = sub(r"\n{4,}", "\n\n\n", content)
-
-    content = content.strip()
-
-    return content
-
-
-def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
-    """Parse the CSS code in the <style> elements into tinycss2 AST nodes.
-
-    Args:
-        styleHtmlElements (list[HtmlElement]): List of <style> elements
-
-    Returns:
-        list: List of tinycss2 AST nodes"""
-
-    # extract CSS code in the <style> tag
-    all_css = [e.text_content() for e in styleHtmlElements]
-
-    # parse all rules in the CSS code into tinycss2 AST nodes
-    # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#ast-nodes
-    all_rules = [
-        rules
-        for css in all_css
-        for rules in parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
-    ]
-
-    return all_rules
-
-
-def filter_selectors(property: str, value: str) -> list[str]:
-    """Get all CSS selectors that contain a CSS rule `{ property: value; }`
-    from given `<style>` elements.
-
-    Args:
-        property (str): CSS property name
-        value (str): CSS property value
-        styleHtmlElements (list[HtmlElement]): List of <style> elements
-
-    Returns:
-        list[str]: List of CSS selectors that contain the given CSS rule"""
-
-    global all_rules
-
-    if all_rules is None:
-        log.warning("No CSS rules found. Skipping selector extraction.")
-        return []
-
-    # selector for rules that contain `property: value;`
-    selectors = []
-
-    for rule in all_rules:
-        if rule.type == "qualified-rule" or rule.type == "at-rule":
-
-            def get_next_ident_token(tokens, i):
-                while i < len(tokens):
-                    if tokens[i].type == "ident":
-                        return tokens[i]
-                    i += 1
-                return None
-
-            for i, token in enumerate(rule.content):
-                # look for the property and value in ident tokens
-                # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#tinycss2.ast.IdentToken
-                if token.type == "ident":
-                    if token.lower_value == property:
-
-                        # check if the next token is the value
-                        next_token = get_next_ident_token(rule.content, i + 1)
-                        if next_token is not None:
-                            if next_token.lower_value == value:
-                                selectors.append(serialize(rule.prelude))
-
-                                log.trace(
-                                    f"Found `{property}: {value}` at rule `{serialize(rule.prelude)}`"
-                                )
-                            break
-
-    return selectors
 
 
 def drop_tag(elements: list[HtmlElement], delimiter: str = " ") -> int:
