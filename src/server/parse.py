@@ -1,19 +1,20 @@
 from utils.logging import log, log_func
 
 
-import re
 from base64 import b64decode
 from pprint import pformat
 
 from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
-from tinycss2 import parse_stylesheet, serialize
 
 from utils.html import (
-    flatten_element,
     get_text_content,
     filter_selectors,
     parse_css_to_ast,
+    FLAG_ATTRIBUTE_TYPE,
+    FLAG_VALUE_NOISE,
+    FLAG_ATTRIBUTE_XPATH,
+    FLAG_VALUE_SIMPLIFIED,
 )
 from dtos import (
     ActionElement,
@@ -81,11 +82,6 @@ def parse(data: WebpageData) -> ParsedWebpageData:
         tree,
         actions,
     )
-
-
-FLAG_ATTRIBUTE_TYPE = "locigraph-type"
-FLAG_VALUE_NOISE = "NOISE"
-FLAG_ATTRIBUTE_XPATH = "locigraph-xpath"
 
 
 # html element attributes that hide elements
@@ -504,6 +500,11 @@ def simplify_html(
         tree (_ElementTree): Element tree of the HTML
     """
 
+    # remove attributes from all elements
+    log.info("Removing attributes from all elements")
+    for e in html.iter():  # type: ignore
+        e.attrib.clear()
+
     prev_elements_count = None  # number of elements removed
 
     # replace elements with no text content with a single space
@@ -559,11 +560,9 @@ def simplify_html(
                 captions.append(f"[{text}]")
 
         # flatten the table into markdown-style text
-        flattened_content = (
-            "\n\n```table\n" + "\n".join(captions + contents) + "\n```\n\n"
-        )
+        text = "[table]\n" + "\n".join(captions + contents)
 
-        flatten_element(table, flattened_content)
+        simplify_element_text(table, text)
 
     prev_elements_count = None  # reset the number of elements removed
 
@@ -584,31 +583,28 @@ def simplify_html(
     # replace list contents with markdown-style lists
     # e.g. <ul><li>1</li> ... </ul> -> <ul> - 1 ...</ul>
     log.info("Replacing list contents with markdown-style lists")
+
     for ul in html.xpath("//ul") + html.xpath("//menu"):
         text = "\n".join(
-            # add bullet point to each list item
-            ["- " + get_text_content(li, multiline=False) for li in ul.xpath(".//li")]
-        )
-
-        ul.clear()
-        ul.text = "\n" + text + "\n"
-
-    for ol in html.xpath("//ol"):
-        text = "\n".join(
-            # add index to each list item
             [
-                f"{i}. " + get_text_content(li, multiline=False)
-                for i, li in enumerate(ol.xpath(".//li"))
+                # bullet points are already added from `get_text_content`
+                get_text_content(li)
+                for li in ul.iterchildren()
             ]
         )
 
-        ol.clear()
-        ol.text = "\n" + text + "\n"
+        simplify_element_text(ul, text)
 
-    # remove attributes from all elements
-    log.info("Removing attributes from all elements")
-    for e in html.iter():  # type: ignore
-        e.attrib.clear()
+    for ol in html.xpath("//ol"):
+        text = "\n".join(
+            [
+                # replace first bullet point with index
+                get_text_content(li).replace("-", f"{i}.", 1)
+                for i, li in enumerate(ul.iterchildren())
+            ]
+        )
+
+        simplify_element_text(ol, text)
 
     return html, tree
 
@@ -639,3 +635,19 @@ def drop_tag(elements: list[HtmlElement], delimiter: str = " ") -> int:
         log.trace(f"dropped tags for {len(elements) - skipped} elements")
 
     return skipped
+
+
+def simplify_element_text(e: HtmlElement, text: str):
+    """Simplify the text content of the given HTML element.
+
+    Args:
+        e (HtmlElement): HTML element to simplify the text content of
+        text (str): Text content to set to the HTML element
+    """
+
+    # clear the element's text content and set the new text content
+    e.clear()  # type: ignore
+    e.text = text  # type: ignore
+
+    # set the simplified flag to the element
+    e.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_SIMPLIFIED)
