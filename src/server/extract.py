@@ -106,6 +106,7 @@ def extract_llm(
             messages=generate_extract_prompt(title, elements, query),
             model=model_id,
             mock_response=mock_response,
+            stop="======",
         )
 
         # Save the response to a file

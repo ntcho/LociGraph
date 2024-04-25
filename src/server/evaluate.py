@@ -34,6 +34,7 @@ def evaluate(
             messages=generate_evaluate_prompt(query, results),
             model=model_id,
             mock_response=mock_response,
+            stop="======",
         )
 
         # Save the response to a file

@@ -39,6 +39,7 @@ def act(
             messages=generate_act_prompt(url, title, actions, query, previous_actions),
             model=model_id,
             mock_response=mock_response,
+            stop="======",
         )
 
         # Save the response to a file

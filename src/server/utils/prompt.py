@@ -30,6 +30,7 @@ Query relations:
 - [Alex, date of birth, January 1, 2000]
 Additional relations:
 - [Alex, place of birth, New York City]
+======
 
 Title: `Alex | LinkedIn`
 Content:
@@ -52,6 +53,7 @@ Additional relations:
 - [Alex, studied, Computer Science]
 - [Bard College, offers, Computer Science]
 - [Alex, studied, Mathematics]
+======
 
 Title: `Alex - Wikipedia`
 Content:
@@ -68,6 +70,7 @@ Query relations:
 - [Alex, job title, data scientist]
 - [Alex, majored in, Computer Science]
 - [Alex, graduated from, Bard College]
+======
 
 Title: `Fwd: RSVP for Alex's Birthday Party | Gmail`
 Content:
@@ -82,6 +85,7 @@ Query: [Alex, date of birth, ?]
 Reasoning: Let's think step by step. We need to find the date of birth of Alex. The content provides that Alex's birthday party is this Friday at 7:00 PM. Since this content doesn't provide the date of birth, we should write `No relations found`.
 Output:
 No relations found
+======
 """
 
 extract_prompt_template = """
@@ -211,6 +215,7 @@ Correct relation:
 - [Alex, date of birth, January 1, 2000]
 Relevant relation:
 - [Alex, place of birth, New York]
+======
 
 Query: [Alex, educated at, ?]
 Extraction results:
@@ -221,6 +226,7 @@ Answer: CONTINUE
 Relevant relations:
 - [Alex, studied, Computer Science]
 - [Alex, graduated in, 2020]
+======
 
 Query: [Alex, ?, ?]
 Extraction results:
@@ -235,6 +241,7 @@ Correct relations:
 - [Alex, job title, software engineer]
 Relevant relations:
 - [ACME Inc, location, New York]
+======
 """
 
 evaluate_prompt_template = """
@@ -354,6 +361,7 @@ Actions:
 Objective: Find the value of attribute `date of birth` of entity `Alex`.
 Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for emails related to Alex. We can search with the query `Alex` by typing it in the search mail input. Therefore, I will issue the command `TYPE [2] 'Alex'`.
 Command: TYPESUBMIT [2] 'Alex'
+======
 
 Page URL: https://wikipedia.org/en/Alex
 Page title: `Alex - Wikipedia`
@@ -364,6 +372,7 @@ Actions:
 Objective: Find the value of attribute `graduated in` of entity `Alex`.
 Reasoning: Let's think step by step. We need to find the year Alex graduated. Since the current page is Alex's Wikipedia page, we should click on the LinkedIn link to find the educational background of Alex. Therefore, I will issue the command `CLICK [2]`.
 Command: CLICK [2]
+======
 """
 
 act_prompt_template = """
