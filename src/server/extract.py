@@ -49,7 +49,13 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
         )
 
         # all text content of the relevant elements
-        content = "\n".join([e.content for e in elements if e.content is not None])
+        content = "\n".join(
+            [
+                e.content
+                for e in elements
+                if e.content is not None and e.getrelevancy() > 0.5
+            ]
+        )
 
         # send a POST request to the app_extract endpoint
         response = requests.post(
