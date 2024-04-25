@@ -67,11 +67,6 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     actions = get_action_elements(html, tree)
     html, tree = simplify_html(html, tree)
 
-    from utils.file import write_txt
-    from lxml.html import tostring
-
-    write_txt("test.txt", tostring(html, encoding="unicode"))  # type: ignore
-
     return ParsedWebpageData(
         data.url,
         data.htmlBase64,

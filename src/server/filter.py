@@ -106,14 +106,15 @@ def get_top_keywords(query: RelationQuery, title: str | None, k: int = 25) -> li
 
 def get_xpath_queries(
     keywords: list[tuple[str, Relevancy]]
-) -> list[tuple[str, Relevancy]]:
+) -> list[tuple[str, list[str], Relevancy]]:
     """Get the XPath query for the given relation query.
 
     Args:
-        query (RelationQuery): The relation query to get the XPath query for.
+        keywords (list[tuple[str, Relevancy]]): The keywords to filter elements.
 
     Returns:
-        str: The XPath query that filters top K elements related to the given query.
+        list[tuple[str, list[str], Relevancy]]: List of XPath queries, keyword group, 
+        and its relevancy.
     """
 
     log.info(f"Filtering elements with {len(keywords)} keywords...")
@@ -126,12 +127,12 @@ def get_xpath_queries(
         ([k for k, r in keywords if r == Relevancy.LOW], Relevancy.LOW),
     ]  # [([keyword, ...], relevance), ...]
 
-    results: list[tuple[str, Relevancy]] = []  # [(query, relevance), ...]
+    results: list[tuple[str, list[str], Relevancy]] = []  # [(query, relevance), ...]
 
     for keyword_group, relevance in keywords_by_relevance:
         xpath_query = get_keyword_xpath_query(keyword_group)
         if xpath_query is not None:
-            results.append((xpath_query, relevance))
+            results.append((xpath_query, keyword_group, relevance))
 
     return results
 
@@ -184,7 +185,7 @@ def filter_elements(
 
     results: list[Element] = []
 
-    for xpath_query, content_relevancy in xpath_queries:
+    for xpath_query, keyword_group, content_relevancy in xpath_queries:
         log.info(f"Filtering elements with XPath query (len={len(xpath_query)})")
         log.trace(
             f"Filtering elements with XPath query [relevancy={content_relevancy}, query=`{xpath_query}`]"
@@ -195,9 +196,21 @@ def filter_elements(
 
         # create Element objects from the filtered elements
         filtered_elements: list[Element] = []
+        
+        # content must be at least the length of the longest keyword
+        minimum_length = max(keyword_group, key=len)
 
         for element in xpath_eval:
             content = get_text_content(element)
+            
+            while len(content) < len(minimum_length):
+                # get parent element if content is too short
+                element = element.getparent()
+                
+                if element is None:
+                    break
+                
+                content = get_text_content(element)
 
             result = Element(
                 xpath=tree.getpath(element),

@@ -9,6 +9,7 @@ from tinycss2 import parse_stylesheet, serialize
 FLAG_ATTRIBUTE_TYPE = "locigraph-type"
 FLAG_VALUE_NOISE = "NOISE"
 FLAG_VALUE_SIMPLIFIED = "SIMPLIFIED"
+
 FLAG_ATTRIBUTE_XPATH = "locigraph-xpath"
 
 
@@ -196,7 +197,7 @@ def filter_selectors(all_rules: list | None, property: str, value: str) -> list[
                                     )
                                 break
             except Exception as e:
-                log.warning(f"Error while parsing CSS rule `{rule}`, {e}")
+                log.trace(f"skipped parsing CSS rule `{rule}`: {e}")
                 # log.exception(e)
 
     return selectors
