@@ -154,7 +154,7 @@ function IndexSidePanel() {
     }
 
     // continue processing if continuous mode is enabled
-    if (continuous && response.error === null && response.isComplete === false) {
+    if (continuous && response.error == null && response.isComplete === false) {
       processPage()
     }
   }
