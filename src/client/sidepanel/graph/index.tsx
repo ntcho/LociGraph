@@ -239,7 +239,13 @@ const useAutoLayout = () => {
         .strength(0.05)
         .distance((edge) =>
           // The distance between the nodes is proportional to the length of edge label
-          edge.data.label ? edge.data.label.length * 5 + 100 : 100
+          {
+            const labelLength =
+              edge.data && edge.data.label ? edge.data.label.length : 0
+            const idLength = edge.id ? edge.id.length : 0
+
+            return 100 + (labelLength + idLength) * 3
+          }
         )
     )
 
