@@ -8,7 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getActionString(action: Action) {
   const actionValue = action.value ? " '" + action.value + "'" : ""
-  const actionString = action.element.string ? " (" + action.element.string + ")" : ""
+  const actionString = action.element.string ?
+    // remove element index from the string
+    " (" + action.element.string.replace(/\[\d+\] */, "") + ")" : ""
 
   return `${action.type}${actionValue}${actionString}`
 }
