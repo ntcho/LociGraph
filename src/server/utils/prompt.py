@@ -187,7 +187,7 @@ def parse_extract_response(response: str) -> list[Relation]:
                 continue
 
             # Extract the relation from the line
-            match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+            match = re.match(r"- *\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
             if match:
                 relations.append(Relation(*match.groups()))
@@ -317,7 +317,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
                 continue
 
             # Extract the relation from the line
-            match = re.match(r"- \[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
+            match = re.match(r"- *\[\s*(.+?)\s*,\s*(.+?)\s*,\s*(.+)\s*\]", line)
 
             if match:
                 relations.append(Relation(*match.groups()))
@@ -458,7 +458,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
 
     # find last matching action in the response
     match = re.search(
-        r"(?:[\w\W]*)(CLICK|TYPE|TYPESUBMIT) \[(\d+)\](?: '(.+)')?", response
+        r"(?:[\w\W]*)(CLICK|TYPE|TYPESUBMIT) *\[(\d+)\](?: *'(.+)')?", response
     )
 
     if not match:
