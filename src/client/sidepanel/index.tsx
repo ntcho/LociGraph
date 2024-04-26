@@ -349,6 +349,7 @@ function IndexSidePanel() {
                             // clear results and response
                             setResponse(null)
                             setResults([])
+                            setPreviousActions([])
                           }}>
                           Continue
                         </AlertDialogAction>
