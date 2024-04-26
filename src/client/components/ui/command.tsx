@@ -1,6 +1,6 @@
 import { type DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
-import { Search } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 import * as React from "react"
 
 import { Dialog, DialogContent } from "~components/ui/dialog"
@@ -42,7 +42,7 @@ const CommandInput = React.forwardRef<
   <div
     className="flex items-center border-b border-b-black/25 dark:border-b-white/25 px-3"
     cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+    <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
@@ -73,11 +73,7 @@ const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
 >((props, ref) => (
-  <CommandPrimitive.Empty
-    ref={ref}
-    className="py-6 text-center text-sm"
-    {...props}
-  />
+  <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-sm" {...props} />
 ))
 
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName

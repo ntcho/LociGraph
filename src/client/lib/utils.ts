@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Action, ActionElement } from "~types"
+import type { Action, ActionElement, RelationQuery } from "~types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -41,4 +41,14 @@ export function getInputActionDetails(actionElement: ActionElement): string {
   }
 
   return null
+}
+
+export function getExportFilename(query: RelationQuery) {
+  const entity = query.entity
+  const attribute = query.attribute ? `-${query.attribute}` : ""
+  const value = query.value ? `-${query.value}` : ""
+
+  const timestamp = new Date().toISOString().replace(/:/g, "-")
+
+  return `locigraph_${timestamp}_${entity}${attribute}${value}`
 }

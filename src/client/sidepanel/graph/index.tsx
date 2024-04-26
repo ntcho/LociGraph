@@ -18,9 +18,10 @@ import "reactflow/dist/style.css"
 import "./index.css"
 
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force"
-import { GroupIcon, LoaderCircle } from "lucide-react"
+import { GroupIcon, LoaderCircleIcon } from "lucide-react"
 
 import { Button } from "~components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "~components/ui/tooltip"
 import type { Relation } from "~types"
 
 import RelationEdge from "./RelationEdge"
@@ -51,6 +52,12 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
   const [isGraphInitialized, enableAutoLayout, isAutoLayoutEnabled] = useAutoLayout()
 
   useEffect(() => {
+    if (relations.length === 0) {
+      setNodes([])
+      setEdges([])
+      return
+    }
+
     // cooridnates of the next node; add new nodes to the left bottom corner
     let nextX =
       nodes.length === 0 ? 0 : Math.min(...nodes.map((node) => node.position.x))
@@ -144,18 +151,25 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
       fitView>
       <Panel position="top-right">
         {isGraphInitialized && (
-          <Button
-            id="organize-auto-layout"
-            variant="outline"
-            size="icon"
-            onClick={() => enableAutoLayout()}
-            disabled={isAutoLayoutEnabled}>
-            {isAutoLayoutEnabled ? (
-              <LoaderCircle className="h-5 w-5 animate-spin" />
-            ) : (
-              <GroupIcon className="h-5 w-5" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                id="organize-auto-layout"
+                variant="outline"
+                size="icon"
+                onClick={() => enableAutoLayout()}
+                disabled={isAutoLayoutEnabled}>
+                {isAutoLayoutEnabled ? (
+                  <LoaderCircleIcon className="h-5 w-5 animate-spin" />
+                ) : (
+                  <GroupIcon className="h-5 w-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Organize graph</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </Panel>
       <Background />
