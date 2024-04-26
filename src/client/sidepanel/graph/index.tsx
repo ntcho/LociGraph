@@ -48,8 +48,7 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
   // @ts-ignore
   const edgeTypes: EdgeTypes = useMemo(() => ({ relation: RelationEdge }), [])
 
-  const [isAutoLayoutInitialized, organizeAutoLayout, isAutoLayoutEnabled] =
-    useAutoLayout()
+  const [isGraphInitialized, enableAutoLayout, isAutoLayoutEnabled] = useAutoLayout()
 
   useEffect(() => {
     // cooridnates of the next node; add new nodes to the left bottom corner
@@ -127,6 +126,10 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
     }
   }
 
+  // useEffect(() => {
+  //   console.error("isAutoLayoutEnabled changed", isAutoLayoutEnabled)
+  // }, [isAutoLayoutEnabled])
+
   return (
     <ReactFlow
       className="rounded-md border border-stone-200 dark:border-stone-800 floatingedges"
@@ -140,12 +143,12 @@ function RelationGraph({ relations }: { relations: Relation[] }) {
       nodesConnectable={false} // disable editing edges
       fitView>
       <Panel position="top-right">
-        {isAutoLayoutInitialized && (
+        {isGraphInitialized && (
           <Button
             id="organize-auto-layout"
             variant="outline"
             size="icon"
-            onClick={() => organizeAutoLayout(5000)}
+            onClick={() => enableAutoLayout()}
             disabled={isAutoLayoutEnabled}>
             {isAutoLayoutEnabled ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
@@ -189,37 +192,30 @@ const useAutoLayout = () => {
     [...store.nodeInternals.values()].every((node) => node.width && node.height)
   )
 
-  return useMemo<[boolean, (duration: number) => boolean, boolean]>(() => {
+  const [enabled, setEnabled] = useState(false)
+
+  return useMemo<[boolean, () => void, boolean]>(() => {
     let nodes = getNodes().map((node) => ({
       ...node,
       x: node.position.x,
       y: node.position.y
     }))
     let edges = getEdges().map((edge) => edge)
-    let enabled = false
+
+    let runNextTick = enabled
 
     const ready = initialised && nodes.length > 0
 
-    const organize = (duration: number) => {
-      if (!ready) return false // signal that the simulation can't be started
-      if (enabled) return true // signal that the simulation is already running
-
-      enabled = true
-
-      // Start the simulation
-      window.requestAnimationFrame(tick)
-
-      // Stop the simulation after the duration
-      setTimeout(() => {
-        enabled = false
-      }, duration)
-
-      return enabled
-    }
-
     // If React Flow hasn't initialised our nodes with a width and height yet, or
     // if there are no nodes in the flow, then we can't run the simulation!
-    if (!ready) return [false, organize, enabled]
+    if (!ready) return [false, () => {}, enabled]
+
+    const enableAutoLayout = () => {
+      if (runNextTick) return true // signal that the simulation is already running
+
+      runNextTick = true
+      setEnabled(true)
+    }
 
     simulation.nodes(nodes).force(
       "link",
@@ -255,19 +251,29 @@ const useAutoLayout = () => {
       setNodes(nodes.map((node) => ({ ...node, position: { x: node.x, y: node.y } })))
 
       window.requestAnimationFrame(() => {
-        // Give React and React Flow a chance to update and render the new node
-        // positions before we fit the viewport to the new layout.
+        // Re-center the viewport
         fitView()
 
         // If the simulation isn't stopped, schedule another tick.
-        if (enabled) tick()
+        if (runNextTick) tick()
       })
 
-      return [true, organize, enabled]
+      return [true, enableAutoLayout, enabled]
     }
 
-    return [true, organize, enabled]
-  }, [initialised])
+    if (runNextTick) {
+      // Start the simulation
+      window.requestAnimationFrame(tick)
+
+      // Stop the simulation after the duration
+      setTimeout(() => {
+        runNextTick = false
+        setEnabled(false)
+      }, 2000)
+    }
+
+    return [true, enableAutoLayout, enabled]
+  }, [initialised, enabled])
 }
 
 export default RelationGraphWithProvider
