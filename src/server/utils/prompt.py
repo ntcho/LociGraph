@@ -427,7 +427,7 @@ def generate_act_prompt(
             "<previous_actions>", "\n".join([f"- {a}" for a in previous_actions])
         )
         if len(previous_actions) > 0
-        else prompt.replace("Previous actions:\n<previous_actions\n", "")
+        else prompt.replace("Previous actions:\n<previous_actions>\n", "")
     )
 
     message = [
