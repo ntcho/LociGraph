@@ -420,7 +420,8 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
 
         details = {}
 
-        if href is not None and href != "" and href != "#":
+        # add href to details if it's not an in-page link
+        if href is not None and href != "" and href.startswith("#") is False:
             details["href"] = href
 
         actions.append(
