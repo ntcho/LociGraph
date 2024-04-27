@@ -158,7 +158,7 @@ def generate_extract_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
+    log.trace(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -174,7 +174,7 @@ def parse_extract_response(response: str) -> list[Relation]:
     """
 
     log.info(f"Parsing response (len(response)={len(response)})")
-    log.debug(f"Parsing response:\n```\n{response}\n```")
+    log.trace(f"Parsing response:\n```\n{response}\n```")
 
     relations: list[Relation] = []
 
@@ -284,7 +284,7 @@ def generate_evaluate_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
+    log.trace(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -300,7 +300,7 @@ def parse_evaluate_response(response: str) -> tuple[bool, list[Relation]]:
     """
 
     log.info(f"Parsing response (len(response)={len(response)})")
-    log.debug(f"Parsing response:\n```\n{response}\n```")
+    log.trace(f"Parsing response:\n```\n{response}\n```")
 
     answer_stop = "answer: stop" in response.lower()
     answer_continue = "answer: continue" in response.lower()
@@ -438,7 +438,7 @@ def generate_act_prompt(
         }
     ]
 
-    log.debug(f"Generated message:\n```\n{message[0]['content']}\n```")
+    log.trace(f"Generated message:\n```\n{message[0]['content']}\n```")
 
     return message
 
@@ -455,7 +455,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
     """
 
     log.info(f"Parsing response (len(response)={len(response)})")
-    log.debug(f"Parsing response:\n```\n{response}\n```")
+    log.trace(f"Parsing response:\n```\n{response}\n```")
 
     # find last matching action in the response
     match = re.search(
