@@ -367,9 +367,9 @@ Command: TYPESUBMIT [2] 'Alex'
 Page URL: https://wikipedia.org/en/Alex
 Page title: `Alex - Wikipedia`
 Actions:
-- [1] LINK 'Bard College - Alex' (href='https://bard.edu/people/alex')
-- [2] LINK 'Alex | LinkedIn' (href='https://linkedin.com/in/alex')
-- [3] LINK 'ACME Inc - Alex' (href='https://acme.com/people/alex')
+- [1] LINK 'Bard College - Alex' (href='bard.edu/people/alex')
+- [2] LINK 'Alex | LinkedIn' (href='linkedin.com/in/alex')
+- [3] LINK 'ACME Inc - Alex' (href='acme.com/people/alex')
 Objective: Find the value of attribute `graduated in` of entity `Alex`.
 Reasoning: Let's think step by step. We need to find the year Alex graduated. Since the current page is Alex's Wikipedia page, we should click on the LinkedIn link to find the educational background of Alex. Therefore, I will issue the command `CLICK [2]`.
 Command: CLICK [2]
