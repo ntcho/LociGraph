@@ -1,8 +1,10 @@
-from utils.logging import log
+from utils.logging import log, log_func
 
 import re
+import concurrent.futures
 
 from lxml.html import HtmlElement
+from lxml.cssselect import CSSSelector
 from tinycss2 import parse_stylesheet, serialize
 
 
@@ -149,6 +151,7 @@ def get_text_content(
     return result
 
 
+@log_func(time=True)
 def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
     """Parse the CSS code in the <style> elements into tinycss2 AST nodes.
 
@@ -158,21 +161,42 @@ def parse_css_to_ast(styleHtmlElements: list[HtmlElement]) -> list:
     Returns:
         list: List of tinycss2 AST nodes"""
 
-    # extract CSS code in the <style> tag
-    all_css = [e.text_content() for e in styleHtmlElements]
+    all_rules = []  # list[tinycss2.ast.Object]
 
-    # parse all rules in the CSS code into tinycss2 AST nodes
-    # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#ast-nodes
-    all_rules = [
-        rules
-        for css in all_css
-        for rules in parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
-    ]
+    # multi-threaded parsing of CSS code
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+
+        def parse_css(styleElement: HtmlElement):
+            css = styleElement.text_content()
+
+            # parse all rules in the CSS code into tinycss2 AST nodes
+            # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#ast-nodes
+            rules = parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
+
+            # filter out only qualified rules and at-rules
+            rules = [r for r in rules if r.type in ["qualified-rule", "at-rule"]]
+
+            all_rules.extend(rules)
+            return len(rules)
+
+        futures = [executor.submit(parse_css, e) for e in styleHtmlElements]
+        log.info(f"Parsing {len(futures)} <style> elements into AST nodes")
+
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                count = future.result()
+                if count > 0:
+                    log.trace(f"parsed {count} CSS rules")
+            except Exception as e:
+                log.error(f"Failed to parse CSS code: {e}")
 
     return all_rules
 
 
-def filter_selectors(all_rules: list | None, property: str, value: str) -> list[str]:
+@log_func(time=True)
+def filter_selectors(
+    all_rules: list | None, filters: list[tuple[str, str]]
+) -> list[CSSSelector]:
     """Get all CSS selectors that contain a CSS rule `{ property: value; }`
     from given `<style>` elements.
 
@@ -182,44 +206,70 @@ def filter_selectors(all_rules: list | None, property: str, value: str) -> list[
         styleHtmlElements (list[HtmlElement]): List of <style> elements
 
     Returns:
-        list[str]: List of CSS selectors that contain the given CSS rule"""
+        list[CSSSelector] | None: List of CSS selectors that contain the CSS rule
+        `{ property: value; }`
+    """
 
     if all_rules is None:
         log.warning("No CSS rules found. Skipping selector extraction.")
         return []
 
     # selector for rules that contain `property: value;`
-    selectors = []
+    selectors: list[CSSSelector] = []
 
-    for rule in all_rules:
-        if rule.type == "qualified-rule" or rule.type == "at-rule":
+    for filter in filters:
 
-            def get_next_ident_token(tokens, i):
-                while i < len(tokens):
-                    if tokens[i].type == "ident":
-                        return tokens[i]
-                    i += 1
-                return None
+        prev = len(selectors)
+
+        for rule in all_rules:
+            # index of the property token
+            pi = find_token(rule.content, filter[0])
+            if pi < 0:
+                continue
+
+            # index of the value token
+            vi = find_token(rule.content, filter[1], pi + 1)
+            if vi < 0:
+                continue
 
             try:
-                for i, token in enumerate(rule.content):
-                    # look for the property and value in ident tokens
-                    # read more: https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#tinycss2.ast.IdentToken
-                    if token.type == "ident":
-                        if token.lower_value == property:
+                # serialize the CSS selector rule
+                selector = serialize(rule.prelude)
 
-                            # check if the next token is the value
-                            next_token = get_next_ident_token(rule.content, i + 1)
-                            if next_token is not None:
-                                if next_token.lower_value == value:
-                                    selectors.append(serialize(rule.prelude))
-
-                                    log.trace(
-                                        f"Found `{property}: {value}` at rule `{serialize(rule.prelude)}`"
-                                    )
-                                break
+                # try to parse the CSS selector
+                selectors.append(CSSSelector(selector, translator="html"))
             except Exception as e:
-                log.trace(f"skipped parsing CSS rule `{rule}`: {e}")
-                # log.exception(e)
+                # log.trace(f"skipping rule: {e}")
+                pass
+
+        log.trace(f"found {len(selectors) - prev} selectors for {filter}")
 
     return selectors
+
+
+def find_token(tokens: list, token_value: str, start: int = 0) -> int:
+    """Find the index of the ident token that matches the given token value.
+
+    Note:
+        Read more about tinycss2 AST tokens:
+        https://doc.courtbouillon.org/tinycss2/stable/api_reference.html#tinycss2.ast.IdentToken
+
+    Args:
+        tokens (list): List of tinycss2 AST tokens
+        token_value (str): Token value to search for
+        start (int, optional): Start index to search from. Defaults to 0.
+    """
+
+    if start < 0 or tokens is None:
+        return -1
+
+    i = start
+    while i < len(tokens):
+        # check if the token is an ident and matches the token value
+        if tokens[i].type == "ident":
+            if tokens[i].lower_value == token_value:
+                return i
+            return -1
+        i += 1
+
+    return -1

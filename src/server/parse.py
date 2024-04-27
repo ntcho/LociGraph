@@ -1,11 +1,13 @@
 from utils.logging import log, log_func
 
 
+import concurrent.futures
 from base64 import b64decode
 from pprint import pformat
 
 from lxml.html import HtmlElement, fromstring
 from lxml.etree import _ElementTree, ElementTree
+from lxml.cssselect import CSSSelector
 
 from utils.html import (
     get_text_content,
@@ -40,7 +42,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
         ParsedWebpageData: Parsed webpage data
     """
 
-    log.info(f"Parsing webpage data from `{data.url}`...")
+    log.info(f"Parsing webpage... (url=`{data.url}`)")
 
     html_text = b64decode(data.htmlBase64).decode("utf-8")
 
@@ -50,12 +52,12 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     html: HtmlElement = fromstring(html_text, base_url=data.url)
     tree: _ElementTree = ElementTree(html)
 
-    log.info(f"Parsed HTML [{tree.__sizeof__()} bytes]")
+    log.debug(f"Parsed HTML")
 
     title = " ".join(html.xpath("//title/text()"))
     title = title if len(title) > 0 else None
 
-    log.info(f"Parsed title: `{title}`")
+    log.debug(f"Parsed title: `{title}`")
 
     # parse CSS rules to AST nodes
     global all_rules
@@ -64,6 +66,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     html, tree = flag_noise_elements(html, tree)
     html, tree = flag_action_elements(html, tree)
     html, tree = remove_noise_elements(html, tree)
+    html, tree = replace_aria_roles(html, tree)
     actions = get_action_elements(html, tree)
     html, tree = simplify_html(html, tree)
 
@@ -129,14 +132,20 @@ def flag_noise_elements(
     """
 
     # remove comments
+    log.info("Removing comments")
+    count = 0
     for element in html.xpath("//comment()"):
         try:
             element.drop_tree()
+            count += 1
         except Exception as e:
             log.trace(f"skipped drop_tree on {element}: {e}")
+    log.debug(f"removed {count} comments")
 
     # flag elements that are not visible with element class as noise
     # e.g. <div style="display: none">...</div>
+    log.info("Flagging elements with noise attributes")
+    count = 0
     for attr in noise_attributes:
         elements = html.xpath(f"//*[{attr}]")
 
@@ -145,36 +154,49 @@ def flag_noise_elements(
             for child in element.iter():
                 child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
 
+        count += len(elements)
         if len(elements) > 0:
             log.trace(f"flagged {len(elements)} elements with attr=`{attr}`")
+    log.debug(f"flagged {count} elements with {len(noise_attributes)} attributes")
 
     # flag elements that are not visible via CSS style as noise
     # e.g. <div class="hidden">...</div> & .hidden { display: none; }
-    selectors = []
+    # multi-threaded flagging noise elements
+    log.info("Flagging elements with noise styles")
+    with concurrent.futures.ThreadPoolExecutor() as executor:
 
-    for property, value in noise_styles:
-        selectors.extend(filter_selectors(all_rules, property, value))
-
-    for selector in selectors:
-        try:
-            elements = html.cssselect(selector)
+        def flag_elements_with_selector(html: HtmlElement, select: CSSSelector):
+            elements = select(html)
 
             for element in elements:
                 # flag the element and all its children as noise
                 for child in element.iter():
                     child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
 
-            if len(elements) > 0:
-                log.trace(
-                    f"flagged {len(elements)} elements with selector=`{selector}`"
-                )
+            return len(elements), select.css
 
-        except Exception as element:
-            # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            log.trace(f"skipped selector `{selector}`, {element}")
+        # flag elements for each selector in parallel
+        futures = [
+            executor.submit(flag_elements_with_selector, html, selector)
+            for selector in filter_selectors(all_rules, noise_styles)
+        ]
+
+        count = 0
+
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                c, css = future.result()
+                count += c
+                if c > 0:
+                    log.trace(f"flagged {c} elements with selector=`{css}`")
+            except Exception as e:
+                log.trace(f"skipped selector: {e}")
+
+        log.debug(f"flagged {count} elements with {len(noise_styles)} filters")
 
     # remove elements that doesn't contain text content
     # e.g. <style>...</style> -> ""
+    count = 0
     for tag in noise_tags:
         elements = html.xpath(f"//{tag}")
 
@@ -183,8 +205,10 @@ def flag_noise_elements(
             for child in element.iter():
                 child.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_NOISE)
 
+        count += len(elements)
         if len(elements) > 0:
             log.trace(f"flagged {len(elements)} <{tag}> tags")
+    log.trace(f"flagged {count} elements with {len(noise_tags)} tags")
 
     return html, tree
 
@@ -218,6 +242,11 @@ input_button_selector = " or ".join(
     ]
 )
 
+# ARIA roles that are considered as action elements
+link_aria_widget_roles = ["link"]
+button_aria_widget_roles = ["button"]
+input_aria_widget_roles = ["textbox", "searchbox"]
+
 
 @log_func()
 def flag_action_elements(
@@ -240,24 +269,23 @@ def flag_action_elements(
     inputs: list[HtmlElement] = []
     # dropdowns = [] # FUTURE: add support for <select> tags
 
+    log.info("Flagging action elements...")
+
     # * extract LINK elements
     # all <a> elements with non-empty text content
     links.extend(html.xpath("//a[string-length(text()) > 0]"))
     # all elements with `cursor: pointer` style with non-empty text content
-    for selector in filter_selectors(all_rules, "cursor", "pointer"):
-        try:
+    link_selectors = filter_selectors(all_rules, [("cursor", "pointer")])
+    if link_selectors is not None:
+        for select_link in link_selectors:
             links.extend(
-                [
-                    e
-                    for e in html.cssselect(selector)
-                    if len(e.text_content().strip()) > 0
-                ]
+                [e for e in select_link(html) if len(e.text_content().strip()) > 0]
             )
-        except Exception as e:
-            # pseudo-elements and pseudo-classes (e.g. ::before) are not supported
-            log.trace(f"Skipped selector `{selector}`, {e}")
+    # all elements with ARIA role of link
+    for role in link_aria_widget_roles:
+        links.extend(html.xpath(f"//*[@role='{role}']"))
 
-    log.info(f"Extracted LINK elements [{len(links)} elements]")
+    log.trace(f"Extracted LINK elements [{len(links)} elements]")
 
     # * extract INPUT elements
     # all <input> elements except hidden and button types
@@ -266,8 +294,11 @@ def flag_action_elements(
     )
     # all <textarea> elements
     inputs.extend(html.xpath("//textarea"))
+    # all elements with ARIA role of text input
+    for role in input_aria_widget_roles:
+        inputs.extend(html.xpath(f"//*[@role='{role}']"))
 
-    log.info(f"Extracted INPUT elements [{len(inputs)} elements]")
+    log.trace(f"Extracted INPUT elements [{len(inputs)} elements]")
 
     # * Extract BUTTON elements
     # all <button> element with non-empty text content
@@ -276,8 +307,11 @@ def flag_action_elements(
     buttons.extend(html.xpath(f"//*[{click_event_selector}]"))
     # all <input> elements with button type attributes
     buttons.extend(html.xpath(f"//input[{input_button_selector}]"))
+    # all elements with ARIA role of button
+    for role in button_aria_widget_roles:
+        buttons.extend(html.xpath(f"//*[@role='{role}']"))
 
-    log.info(f"Extracted BUTTON elements [{len(buttons)} elements]")
+    log.trace(f"Extracted BUTTON elements [{len(buttons)} elements]")
 
     # * Extract SELECT elements
     # dropdowns.extend(html.xpath("//select")) # FUTURE: add support for <select> tags
@@ -297,6 +331,8 @@ def flag_action_elements(
                 e.set(FLAG_ATTRIBUTE_TYPE, type)
                 e.set(FLAG_ATTRIBUTE_XPATH, tree.getpath(e))
 
+    log.debug(f"Flagged {len(action_elements)} action elements")
+
     return html, tree
 
 
@@ -312,11 +348,62 @@ def remove_noise_elements(
     """
 
     # remove elements that are flagged as noise
+    log.info("Removing elements flagged as noise")
+    count = 0
     for element in html.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='{FLAG_VALUE_NOISE}']"):
         try:
             element.drop_tree()
+            count += 1
         except Exception as e:
             log.trace(f"skipped drop_tree on {element}: {e}")
+    log.debug(f"removed {count} elements flagged as noise")
+
+    return html, tree
+
+
+# ARIA landmark roles that should be replaced with HTML tags
+# e.g. <div role="banner"> -> <header>
+aria_landmark_roles_to_tags = {
+    # See https://mdn.io/aria-landmark-role
+    "banner": "header",
+    "complementary": "aside",
+    "contentinfo": "footer",
+    "form": "form",
+    "main": "main",
+    "navigation": "nav",
+    "region": "section",
+    "search": "form",
+}
+
+
+def replace_aria_roles(
+    html: HtmlElement, tree: _ElementTree
+) -> tuple[HtmlElement, _ElementTree]:
+    """Replace ARIA roles with HTML tags.
+
+    Args:
+        html (HtmlElement): html element of the HTML
+        tree (_ElementTree): Element tree of the HTML
+    """
+
+    # replace ARIA roles with HTML tags
+    log.info("Replacing ARIA roles with HTML tags")
+    count = 0
+    for role, tag in aria_landmark_roles_to_tags.items():
+        elements = html.xpath(f"//*[@role='{role}']")
+
+        for element in elements:
+            log.trace(f"  replacing {element} to <{tag}>")
+            element.tag = tag
+
+        count += len(elements)
+        if len(elements) > 0:
+            log.trace(
+                f"replaced {len(elements)} elements with `role='{role}'` with <{tag}>"
+            )
+    log.debug(
+        f"replaced {count} elements with {len(aria_landmark_roles_to_tags)} roles"
+    )
 
     return html, tree
 
@@ -339,6 +426,10 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
     links = html.xpath(f"//*[@{FLAG_ATTRIBUTE_TYPE}='LINK']")
 
     actions: list[ActionElement] = []
+
+    log.info(
+        f"Creating ActionElements... [inputs={len(inputs)}, buttons={len(buttons)}, links={len(links)}]"
+    )
 
     # 1st priority: INPUT actions
     for element in inputs:
@@ -373,6 +464,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
         actions.append(
             ActionElement(
                 xpath=xpath,
+                modified_xpath=tree.getpath(element),
                 html_element=element,
                 type="INPUT",
                 content=element.get("value", default=None),
@@ -396,6 +488,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
         actions.append(
             ActionElement(
                 xpath=xpath,
+                modified_xpath=tree.getpath(element),
                 html_element=element,
                 type="BUTTON",
                 content=content,
@@ -427,6 +520,7 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
         actions.append(
             ActionElement(
                 xpath=xpath,
+                modified_xpath=tree.getpath(element),
                 html_element=element,
                 type="LINK",
                 content=content,
@@ -434,8 +528,8 @@ def get_action_elements(html: HtmlElement, tree: _ElementTree) -> list[ActionEle
             )
         )
 
-    log.info(f"Created {len(actions)} ActionElements")
-    log.debug(f"Created ActionElements: \n```\n{pformat(actions)}\n```")
+    log.trace(f"Created ActionElements: \n```\n{pformat(actions)}\n```")
+    log.debug(f"Created {len(actions)} ActionElements")
 
     return actions
 
@@ -519,6 +613,7 @@ def simplify_html(
     # replace table contents with markdown-style tables
     # e.g. <tr><td>1</td><td>2</td></tr> -> 1 | 2
     log.info("Replacing table contents with markdown-style tables")
+    count = 0
     for table in html.xpath("//table"):
 
         if len(table.xpath(".//table")) > 0:
@@ -554,6 +649,8 @@ def simplify_html(
         text = "[table]\n" + "\n".join(captions + contents)
 
         simplify_element_text(table, text)
+        count += 1
+    log.debug(f"replaced {count} tables with markdown-style tables")
 
     # remove tags from elements that contain only one child element
     log.info("Removing tags from elements with 1 children")
@@ -634,7 +731,7 @@ def drop_tag(elements: list[HtmlElement], delimiter: str = " ") -> int:
             skipped += 1
 
     if len(elements) > 0:
-        log.trace(f"dropped tags for {len(elements) - skipped} elements")
+        log.debug(f"dropped tags for {len(elements) - skipped} elements")
 
     return skipped
 
@@ -653,3 +750,10 @@ def simplify_element_text(e: HtmlElement, text: str):
 
     # set the simplified flag to the element
     e.set(FLAG_ATTRIBUTE_TYPE, FLAG_VALUE_SIMPLIFIED)
+
+
+def debug_html(e, f):
+    from lxml.html import tostring
+    from utils.file import write_txt
+
+    write_txt(f, tostring(e, pretty_print=True).decode("utf-8"))  # type: ignore
