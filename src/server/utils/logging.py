@@ -1,5 +1,5 @@
 import functools
-from time import time
+from time import time as now
 from sys import stderr
 
 from loguru import logger
@@ -31,15 +31,31 @@ CONFIG = {
             "diagnose": True,
         },
     ],
-    "levels": [dict(name="TRACE", color="<dim>")],
+    "levels": [
+        dict(name="INFO", color="<b><blue>"),
+        dict(name="DEBUG", color="<white>"),
+        dict(name="TRACE", color="<dim>"),
+    ],
 }
 
 # default behavior for `log_func` decorator. Set to True to log function entry and exit.
 LOG_FUNC_DEFAULT: bool = False  # TODO: set to True on production
 
 
-def log_func(*, entry=LOG_FUNC_DEFAULT, exit=LOG_FUNC_DEFAULT, level="TRACE"):
+def log_func(
+    *,
+    time=LOG_FUNC_DEFAULT,
+    entry=LOG_FUNC_DEFAULT,
+    exit=LOG_FUNC_DEFAULT,
+    level="TRACE",
+):
     """Decorator to log function entry and exit.
+
+    Args:
+        time (bool, optional): Log the time taken to execute the function. Defaults to LOG_FUNC_DEFAULT.
+        entry (bool, optional): Log the function entry. Defaults to LOG_FUNC_DEFAULT.
+        exit (bool, optional): Log the function exit. Defaults to LOG_FUNC_DEFAULT.
+        level (str, optional): Log level. Defaults to "TRACE".
 
     Note:
         This decorator uses the `loguru` logger.
@@ -66,9 +82,9 @@ def log_func(*, entry=LOG_FUNC_DEFAULT, exit=LOG_FUNC_DEFAULT, level="TRACE"):
 
                 log.log(level, entry_str)
 
-            start = time()
+            start = now()
             result = func(*args, **kwargs)
-            end = time()
+            end = now()
 
             if exit:
                 exit_str = "\n".join(
@@ -79,6 +95,8 @@ def log_func(*, entry=LOG_FUNC_DEFAULT, exit=LOG_FUNC_DEFAULT, level="TRACE"):
                 )
 
                 log.log(level, exit_str)
+            elif time:
+                log.log(level, f"Exiting '{name}' (exec={(end - start):f}s)")
 
             return result
 
