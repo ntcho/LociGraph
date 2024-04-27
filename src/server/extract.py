@@ -26,14 +26,14 @@ def extract(
 
     results: list[Relation] = []
 
-    results.extend(extract_mrebel(elements))
+    results.extend(extract_mrebel(elements, title))
     results.extend(extract_llm(elements, query, title, model_id, mock_response))
 
     return results
 
 
 @log_func()
-def extract_mrebel(elements: list[Element]) -> list[Relation]:
+def extract_mrebel(elements: list[Element], title: str | None) -> list[Relation]:
     """Extract relation triplets with mREBEL model.
 
     Args:
@@ -48,8 +48,11 @@ def extract_mrebel(elements: list[Element]) -> list[Relation]:
             f"Extracting relations with mREBEL model (len(elements)={len(elements)})"
         )
 
+        # start the content with the title of the webpage
+        content = title if title is not None else ""
+
         # all text content of the relevant elements
-        content = "\n".join(
+        content += "\n" + "\n".join(
             [
                 e.content
                 for e in elements
