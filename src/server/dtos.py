@@ -44,7 +44,9 @@ class Element:
 
         if details.get("href", None) is not None:
             href = details["href"]
-            href = sub(r"https?:\/\/", "", href)  # remove starting https:// or http://
+            href = sub(r"^https?:\/\/", "", href)  # remove starting https:// or http://
+            href = sub(r"^\/\/", "", href)  # remove leading `//`
+            href = sub(r"^www\.", "", href)  # remove leading `www.`
             href = sub(r"\?.+?$", "?...", href)  # remove query parameters
             details["href"] = href
 
