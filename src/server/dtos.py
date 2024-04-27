@@ -127,11 +127,13 @@ class ActionElement(Element):
         id (int): The unique identifier of the element. Used to reference the element in actions.
         type (Literal["LINK", "BUTTON", "INPUT"]): The type of the element.
         string (str | None): The string representation of the element.
+        modified_xpath (str | None): The modified XPath of the element.
     """
 
     id: int = -1
     type: ActionElementType = "LINK"
     string: Optional[str] = None
+    modified_xpath: Optional[str] = None
 
     def __str__(self) -> str:
         if self.id < 0:
@@ -195,6 +197,7 @@ class ActionElement(Element):
 
         del copy.html_element
         del copy.relevance
+        del copy.modified_xpath
 
         copy.string = self.__str__()  # add string representation
 
@@ -202,10 +205,10 @@ class ActionElement(Element):
 
     def getrepr(self) -> str:
         """Get the representation of the action element in a string format `id=0,
-        type='TYPE' xpath='...', relevancy='0.0' relevance={k: v} details={k: v},
+        type='TYPE' modified_xpath='...', relevancy='0.0' relevance={k: v} details={k: v},
         content='...'`.
         """
-        return f"id={self.id}, type={self.type} {super().getrepr()}"
+        return f"id={self.id}, type={self.type}, modified_xpath='{self.modified_xpath}', {super().getrepr()}"
 
     def __repr__(self) -> str:
         """Get the representation of the action element in a string format `id=0,

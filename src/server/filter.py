@@ -267,12 +267,20 @@ def filter_action_elements(
             log.debug(f"Found search input: {repr(action)}")
 
         else:
+            if action.modified_xpath is None:
+                log.error(f"Invalid action element: {repr(action)}")
+                continue
+            
+            # XPath of the action element in the modified tree
+            # this is different from `action.xpath` which is the original XPath
+            xpath = action.modified_xpath
+            
             # check whether action contains any of the keywords
             for keyword, content_relevance in keywords:
                 if action.content is not None and keyword in action.content.lower():
                     action.relevance = {
                         "content": content_relevance,
-                        "location": calculate_location_relevance(action.xpath),
+                        "location": calculate_location_relevance(xpath),
                     }
                     log.debug(f"Found action with keyword: {repr(action)}")
                     break
@@ -280,7 +288,7 @@ def filter_action_elements(
             if action.relevance is None:
                 action.relevance = {
                     "content": Relevancy.LOW,
-                    "location": calculate_location_relevance(action.xpath),
+                    "location": calculate_location_relevance(xpath),
                 }
 
         result.append(action)
@@ -294,7 +302,7 @@ def filter_action_elements(
     return result
 
 
-def calculate_location_relevance(xpath: str) -> Relevancy:
+def calculate_location_relevance(xpath: str) -> float:
     """Get the relevance level of the element with the given XPath.
 
     Args:
@@ -369,7 +377,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
 
         # add all WikiData property aliases
         try:
-            log.info(f"found alias {index[keyword]}")
+            log.info(f"found alias {pformat(index[keyword])}")
             
             for k in index[keyword]:
                 for word in k.split():
