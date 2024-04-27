@@ -6,7 +6,7 @@ from litellm import completion
 
 from dtos import Action, ActionElement, RelationQuery
 
-from utils.prompt import generate_act_prompt, parse_act_response
+from utils.prompt import generate_act_prompt, parse_act_response, litellm_logger
 from utils.catalog import DEFAULT_MODEL
 from utils.file import write_json
 from utils.dev import get_timestamp, read_mock_response
@@ -40,6 +40,7 @@ def act(
             model=model_id,
             mock_response=mock_response,
             stop="======",
+            logger_fn=litellm_logger,
         )
 
         # Save the response to a file

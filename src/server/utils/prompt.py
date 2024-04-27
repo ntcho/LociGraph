@@ -2,6 +2,7 @@ from utils.logging import log, log_func
 
 
 import re
+from pprint import pformat
 
 from dtos import Action, ActionElement, Element, Relation, RelationQuery
 
@@ -484,3 +485,7 @@ def parse_act_response(response: str, actions: list[ActionElement]) -> Action:
         raise RuntimeError(f"Multiple action elements with id {id} found.")
 
     return Action(type=action_type, element=action_element[0], value=text)  # type: ignore
+
+
+def litellm_logger(x):
+    log.trace(f"LiteLLM\n```\n{pformat(x, width=160)}\n```")
