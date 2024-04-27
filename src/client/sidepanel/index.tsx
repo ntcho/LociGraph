@@ -325,43 +325,44 @@ function IndexSidePanel() {
               )}
             </Button>
 
-            {results.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="warning" className="px-3">
-                        <RotateCcwIcon className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Clear results?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the
-                          current results and session history.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            // clear results and response
-                            setResponse(null)
-                            setResults([])
-                            setPreviousActions([])
-                          }}>
-                          Continue
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Clear results</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
+            {results.length > 0 ||
+              (previousActions.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="warning" className="px-3">
+                          <RotateCcwIcon className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Clear results?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete
+                            the current results and session history.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              // clear results and response
+                              setResponse(null)
+                              setResults([])
+                              setPreviousActions([])
+                            }}>
+                            Continue
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Clear results</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
 
             {results.length > 0 && (
               <Tooltip>
