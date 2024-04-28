@@ -135,6 +135,21 @@ function IndexSidePanel() {
     setResults((prev) => [...prev, ...results])
   }
 
+  const clearResults = () => {
+    // clear results and response
+    setResponse(null)
+    setResults([])
+    setPreviousActions([])
+  }
+
+  const downloadResults = () => {
+    const csv = generateCsv(exportCSVConfig)(results)
+    download({
+      ...exportCSVConfig,
+      filename: getExportFilename({ entity, attribute })
+    })(csv)
+  }
+
   const processPage = async () => {
     // don't start process if entity is not defined
     if (entity === "") return
@@ -325,44 +340,46 @@ function IndexSidePanel() {
               )}
             </Button>
 
-            {results.length > 0 ||
-              (previousActions.length > 0 && (
-                <Tooltip>
-                  <TooltipTrigger>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="warning" className="px-3">
-                          <RotateCcwIcon className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Clear results?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete
-                            the current results and session history.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              // clear results and response
-                              setResponse(null)
-                              setResults([])
-                              setPreviousActions([])
-                            }}>
-                            Continue
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Clear results</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+            {(results.length > 0 || previousActions.length > 0) && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="warning" className="px-3" disabled={isLoading}>
+                        <RotateCcwIcon className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear results?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the
+                          current results and session history.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogAction
+                          variant="warning"
+                          onClick={() => clearResults()}>
+                          Delete results
+                        </AlertDialogAction>
+                        <AlertDialogAction
+                          onClick={() => {
+                            downloadResults()
+                            clearResults()
+                          }}>
+                          Download & delete results
+                        </AlertDialogAction>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Clear results</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             {results.length > 0 && (
               <Tooltip>
@@ -370,13 +387,7 @@ function IndexSidePanel() {
                   <Button
                     variant="primary"
                     className="px-3"
-                    onClick={() => {
-                      const csv = generateCsv(exportCSVConfig)(results)
-                      download({
-                        ...exportCSVConfig,
-                        filename: getExportFilename({ entity, attribute })
-                      })(csv)
-                    }}>
+                    onClick={() => downloadResults()}>
                     <DownloadIcon className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
