@@ -2,6 +2,7 @@ from utils.logging import log, log_func
 
 
 import requests
+import concurrent.futures
 from json import dumps
 
 from litellm import completion
@@ -26,8 +27,27 @@ def extract(
 
     results: list[Relation] = []
 
-    results.extend(extract_mrebel(elements, title))
-    results.extend(extract_llm(elements, query, title, model_id, mock_response))
+    # extract relations with mREBEL and LLMs concurrently
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+
+        futures = [
+            executor.submit(
+                extract_mrebel,
+                elements,
+                title,
+            ),
+            executor.submit(
+                extract_llm,
+                elements,
+                query,
+                title,
+                model_id,
+                mock_response,
+            ),
+        ]
+
+        for future in concurrent.futures.as_completed(futures):
+            results.extend(future.result())
 
     return results
 
