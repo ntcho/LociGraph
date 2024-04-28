@@ -48,22 +48,26 @@ def extract_mrebel(elements: list[Element], title: str | None) -> list[Relation]
             f"Extracting relations with mREBEL model (len(elements)={len(elements)})"
         )
 
+        contents = [
+            e.content
+            for e in elements
+            if e.content is not None and e.getrelevancy() > 0.5
+        ]
+
+        if len(contents) == 0:
+            log.warning("No relevant content to extract relations from.")
+            return []
+
         # start the content with the title of the webpage
-        content = title if title is not None else ""
+        text = f"{title}\n" if title is not None else ""
 
         # all text content of the relevant elements
-        content += "\n" + "\n".join(
-            [
-                e.content
-                for e in elements
-                if e.content is not None and e.getrelevancy() > 0.5
-            ]
-        )
+        text += "\n".join(contents)
 
         # send a POST request to the app_extract endpoint
         response = requests.post(
             "http://localhost:8001/extract/",
-            data=dumps(content),  # serialize content to JSON
+            data=dumps(text),  # serialize content to JSON
         )
 
         if response.ok:
