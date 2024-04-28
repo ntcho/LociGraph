@@ -4,8 +4,17 @@ setup: requirements.txt
 clean:
 	rm ./logs/*
 
+app = LITESTAR_APP=app:app litestar run --port 8000 --reload
+app-models = LITESTAR_APP=models.app:app litestar run --port 8001 --reload-dir models
+
+start:
+	$(app)
+
+start-models:
+	$(app-models)
+
 dev:
-	LITESTAR_APP=app:app litestar run --port 8000 --reload --pdb
+	$(app) --pdb
 
 dev-models:
-	LITESTAR_APP=models.app:app litestar run --port 8001
+	$(app-models) --pdb
