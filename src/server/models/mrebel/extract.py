@@ -9,6 +9,8 @@ from transformers import pipeline
 from dtos import Relation
 
 
+MAX_SEQUENCE_LENGTH = 1024
+
 triplet_extractor = None
 
 
@@ -47,7 +49,15 @@ def extract(text: str) -> list[Relation]:
     if triplet_extractor is None or triplet_extractor.tokenizer is None:
         raise Exception("Failed to load the triplet extractor pipeline")
 
-    log.info(f"Extracting triplets from text: \n```\n{text}\n```")
+    if len(text) > 1024:
+        log.warning(
+            f"Text longer than the maximum sequence langth \
+({len(text)} > {MAX_SEQUENCE_LENGTH}). Truncating to {MAX_SEQUENCE_LENGTH} characters."
+        )
+        text = text[:1024]
+
+    log.info(f"Extracting triplets from text (len={len(text)}")
+    log.trace(f"Extracting triplets from text: \n```\n{text}\n```")
 
     # Translate text into string with triplet tokens
     extracted_text = triplet_extractor.tokenizer.batch_decode(
