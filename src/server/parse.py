@@ -559,7 +559,6 @@ cosmetic_tags = [
     "mark",
     "meter",
     "output",
-    "p",
     "progress",
     "q",
     "ruby",
