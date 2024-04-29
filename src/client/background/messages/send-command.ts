@@ -33,7 +33,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = (req,
 
 export type Command = {
   method: string
-  commandParams?: Object
+  commandParams?: any
 }
 
 export type RequestBody = {

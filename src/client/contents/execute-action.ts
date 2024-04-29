@@ -72,8 +72,33 @@ const typeSubmitElement = async (element: HTMLInputElement, value: string) => {
   }
 }
 
+const navigate = async (url: string) => {
+
+  const response = await sendToBackground<CommandRequestBody, CommandResponseBody>({
+    name: "send-command",
+    body: {
+      // from https://stackoverflow.com/a/21983702/4524257
+      commands: [{
+        method: "Page.navigate",
+        commandParams: { "url": url }
+      }]
+    }
+  })
+
+  if (response.error) {
+    console.error("Error while navigating", response.error)
+  } else {
+    console.info("Dispatched navigation command", response.response)
+  }
+}
+
 const executeAction = (req: RequestBody): ResponseBody => {
   const action = req.action
+
+  if (action.type === "NAVIGATE") {
+    navigate(action.value)
+    return { error: null }
+  }
 
   try {
     const element = getElementByXpath(action.element.xpath)

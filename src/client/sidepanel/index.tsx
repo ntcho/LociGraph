@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { sendToBackground } from "@plasmohq/messaging"
+import { sendToBackground, sendToContentScript } from "@plasmohq/messaging"
 
 import { ThemeProvider } from "~components/theme-provider"
 import { ThemeToggle } from "~components/theme-toggle"
@@ -59,14 +59,26 @@ import {
   TooltipTrigger
 } from "~components/ui/tooltip"
 import { useToast } from "~components/ui/use-toast"
+import type {
+  RequestBody as ExecuteActionRequestBody,
+  ResponseBody as ExecuteActionResponseBody
+} from "~contents/execute-action"
 import { cn, getExportFilename } from "~lib/utils"
-import type { Relation } from "~types"
+import type { Relation, RelationQuery } from "~types"
+import query from "~utils/batch"
 import { CHECK_NETWORK } from "~utils/error"
 
 import RelationGraph from "./graph"
 
 const DEFAULT_MODEL = "gemini/gemini-pro"
 // const DEFAULT_MODEL = "together_ai/togethercomputer/llama-2-70b-chat"
+
+const BATCH: { start_page: string; max_navigation: number; queries: RelationQuery[] } =
+  {
+    start_page: "https://wikipedia.org",
+    max_navigation: 3,
+    queries: query
+  }
 
 const exportCSVConfig = mkConfig({
   quoteStrings: true,
@@ -91,6 +103,9 @@ function IndexSidePanel() {
   const [previousActions, setPreviousActions] = useState<string[]>([])
   const [results, setResults] = useState<Relation[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  // batch processing
+  const [queue, setQueue] = useState<RelationQuery[]>(BATCH.queries)
 
   // toast for temporary messages
   const { toast } = useToast()
@@ -121,6 +136,36 @@ function IndexSidePanel() {
     fetchModels()
   }, [])
 
+  // batch process queries
+  useEffect(() => {
+    if (continuous) {
+      if (queue.length > 0) {
+        // clear results and response
+        clearResults()
+
+        // process next query in the queue
+        setEntity(queue[0].entity)
+        setAttribute(queue[0].attribute)
+
+        console.log("Processing query", queue[0])
+
+        // navigateToURL(`https://wikipedia.org/wiki/${queue[0].entity}`)
+        navigateToURL(BATCH.start_page)
+
+        // start processing
+        setTimeout(() => {
+          document.getElementById("process-button")?.click()
+        }, 3000)
+      } else {
+        console.log("Batch processing completed")
+        // clear queue and reset
+        setEntity("")
+        setAttribute("")
+        setContinuous(false)
+      }
+    }
+  }, [queue, continuous])
+
   const appendResults = (results: Relation[]) => {
     // remove duplicates
     results = results.filter(
@@ -142,12 +187,31 @@ function IndexSidePanel() {
     setPreviousActions([])
   }
 
-  const downloadResults = () => {
+  const downloadResults = (results: Relation[]) => {
+    console.log("Downloading results", results)
+    if (results.length === 0) return
+
     const csv = generateCsv(exportCSVConfig)(results)
     download({
       ...exportCSVConfig,
       filename: getExportFilename({ entity, attribute })
     })(csv)
+  }
+
+  const navigateToURL = async (url: string) => {
+    const response = await sendToContentScript<
+      ExecuteActionRequestBody,
+      ExecuteActionResponseBody
+    >({
+      name: "execute-action",
+      body: {
+        action: {
+          type: "NAVIGATE",
+          value: url
+        },
+        continuous: true
+      }
+    })
   }
 
   const processPage = async () => {
@@ -180,6 +244,9 @@ function IndexSidePanel() {
           ? response.error
           : "Unknown error occurred. Please try again later."
       })
+      if (queue.length > 0) {
+        setQueue((prev) => prev.slice(1)) // process next query
+      }
       return
     }
 
@@ -194,8 +261,25 @@ function IndexSidePanel() {
     }
 
     // continue processing if continuous mode is enabled
-    if (continuous && response.error == null && response.isComplete === false) {
-      processPage()
+    if (continuous && response.error == null) {
+      if (response.isComplete === false) {
+        if (queue.length > 0 && previousActions.length + 1 >= BATCH.max_navigation) {
+          console.error("Max navigation limit reached")
+          setTimeout(() => {
+            downloadResults([...results, ...response.results])
+            setQueue((prev) => prev.slice(1)) // process next query
+          }, 3000)
+        } else {
+          processPage()
+        }
+      } else {
+        if (queue.length > 0) {
+          setTimeout(() => {
+            downloadResults([...results, ...response.results])
+            setQueue((prev) => prev.slice(1)) // process next query
+          }, 3000)
+        }
+      }
     }
   }
 
@@ -304,7 +388,11 @@ function IndexSidePanel() {
                       setContinuous(Boolean(checked))
                     }}
                   />
-                  <Label htmlFor="continuous-mode">Autonomous mode ⚡</Label>
+                  <Label htmlFor="continuous-mode">
+                    {queue.length == 0
+                      ? "Autonomous mode ⚡"
+                      : `Batch process ${queue.length} queries ` + "🚀"}
+                  </Label>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -312,6 +400,7 @@ function IndexSidePanel() {
 
           <div className="flex w-full gap-2">
             <Button
+              id="process-button"
               className="flex-1"
               variant={
                 isLoading
@@ -323,7 +412,7 @@ function IndexSidePanel() {
                       : "default"
               }
               disabled={!isReady}
-              onClick={() => processPage()}>
+              onClick={() => isReady && processPage()}>
               {isLoading ? (
                 <div className="flex items-center">
                   <LoaderCircleIcon className="h-4 w-4 mr-2 animate-spin" />
@@ -365,7 +454,7 @@ function IndexSidePanel() {
                         </AlertDialogAction>
                         <AlertDialogAction
                           onClick={() => {
-                            downloadResults()
+                            downloadResults(results)
                             clearResults()
                           }}>
                           Download & delete results
@@ -387,7 +476,7 @@ function IndexSidePanel() {
                   <Button
                     variant="primary"
                     className="px-3"
-                    onClick={() => downloadResults()}>
+                    onClick={() => downloadResults(results)}>
                     <DownloadIcon className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>

@@ -28,8 +28,8 @@ export type ActionElement = {
 
 export type Action = {
     // see dtos.py:Action
-    element: ActionElement
-    type: "CLICK" | "TYPE" | "TYPESUBMIT"
+    element?: ActionElement
+    type: "CLICK" | "TYPE" | "TYPESUBMIT" | "NAVIGATE"
     value: string
 }
 
