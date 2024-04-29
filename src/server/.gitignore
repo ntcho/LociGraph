@@ -39,3 +39,5 @@ utils/props.json
 
 # Log outputs
 logs/
+debug/
+tests/

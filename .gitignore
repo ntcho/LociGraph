@@ -1,5 +1,6 @@
 .vscode
 experiments
 examples
+tests
 data
 .DS_Store
