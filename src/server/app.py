@@ -5,7 +5,7 @@ from litestar import Litestar, post, get, exceptions
 from dotenv import load_dotenv
 
 from parse import parse
-from filter import filter
+from rank import rank
 from extract import extract
 from evaluate import evaluate
 from act import act
@@ -45,20 +45,20 @@ def process_pipeline(data: RequestBody, model: str = DEFAULT_MODEL) -> ResponseB
 
     query = data.query  # relation query to extract
 
-    # Step 1: Parse
+    # Step 1: Webpage Parsing
     # Parse the base64 webpage data into elements and actions
     scrape = ScrapeEvent(parse(data.data))
     webpage = scrape.data
 
-    # Step 2: Filter
-    # Filter relevant elements from webpage
-    elements, actions = filter(webpage, query)
+    # Step 2: Element Ranking
+    # Rank and filter relevant elements from webpage
+    elements, actions = rank(webpage, query)
 
-    # Step 3: Extract
-    # Extract relations from filtered elements
+    # Step 3: Relation Extraction
+    # Extract relations from ranked elements
     extraction = ExtractionEvent(scrape, query, [])
 
-    if len(elements) > 0:  # skip if no elements filtered
+    if len(elements) > 0:  # skip if no elements ranked
         extraction.results = extract(elements, query, webpage.title, model)
 
     # Step 4: Evaluate
@@ -70,7 +70,7 @@ def process_pipeline(data: RequestBody, model: str = DEFAULT_MODEL) -> ResponseB
         completed, relations = evaluate(query, extraction.results, model)
         evaluation.results = relations
 
-    # Step 5: Act
+    # Step 5: Action Prediction
     # Decide next action based on evaluation result
 
     if not completed:  # skip if extraction is complete
