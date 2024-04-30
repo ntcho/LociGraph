@@ -12,7 +12,7 @@ PROPS_INDEX_PATH = "utils/props-index.json"
 
 
 def read_props_index() -> dict[str, list[str]] | None:
-    """Read the index of WikiData properties and its aliases.
+    """Read the index of Wikidata properties and its aliases.
 
     Note:
         If the index file is not found, it will be downloaded from `PROPS_URL`.
@@ -38,26 +38,26 @@ def read_props_index() -> dict[str, list[str]] | None:
 
 
 def download_props() -> list[dict]:
-    """Download the WikiData properties JSON dump.
+    """Download the Wikidata properties JSON dump.
 
     Returns:
-        list[dict]: The list of WikiData properties.
+        list[dict]: The list of Wikidata properties.
     """
 
-    log.info(f"Downloading WikiData properties from `{PROPS_URL}`")
+    log.info(f"Downloading Wikidata properties from `{PROPS_URL}`")
     response = requests.get(PROPS_URL)
 
     if response.status_code == 200:
         write_json(PROPS_PATH, response.json())
-        log.success(f"Downloaded WikiData properties from `{PROPS_URL}`")
+        log.success(f"Downloaded Wikidata properties from `{PROPS_URL}`")
 
         return response.json()
     else:
-        raise RuntimeError("Failed to download WikiData properties from `{PROPS_URL}`")
+        raise RuntimeError("Failed to download Wikidata properties from `{PROPS_URL}`")
 
 
 def create_props_index() -> dict[str, list[str]]:
-    """Create an searchable index for WikiData properties and its aliases.
+    """Create an searchable index for Wikidata properties and its aliases.
 
     Args:
         data (any): The JSON dump to index.
@@ -67,7 +67,7 @@ def create_props_index() -> dict[str, list[str]]:
     """
 
     try:
-        # Read the JSON dump of WikiData properties.
+        # Read the JSON dump of Wikidata properties.
         # Download the JSON dump from: https://hay.toolforge.org/propbrowse/props.json
         props: list[dict] = read_json(PROPS_PATH)
     except FileNotFoundError:
@@ -107,13 +107,13 @@ def create_props_index() -> dict[str, list[str]]:
 def filter_props(
     props: list[dict], filter_property: str, filter_value: str, inverse: bool = False
 ) -> list[dict]:
-    """Filter a JSON array of WikiData properties.
+    """Filter a JSON array of Wikidata properties.
 
     Note:
         The JSON dump can be downloaded from:
         https://hay.toolforge.org/propbrowse/props.json
 
-        WikiData property JSON format:
+        Wikidata property JSON format:
         ```json
         [
             {

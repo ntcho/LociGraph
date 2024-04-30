@@ -131,8 +131,8 @@ const executeAction = (req: RequestBody): ResponseBody => {
 
       return { error: null }
     } else {
-      console.info(`Cancelled action \`${actionDescription}\``)
-      return { error: "Action cancelled" }
+      console.info(`Canceled action \`${actionDescription}\``)
+      return { error: "Action canceled" }
     }
 
   } catch (e) {

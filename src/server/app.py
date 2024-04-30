@@ -36,11 +36,11 @@ def process_pipeline(data: RequestBody, model: str = DEFAULT_MODEL) -> ResponseB
         to start the server.
 
     Args:
-        data (ExtractionQuery): The extraction query to process.
+        data (RequestBody): The extraction query to process.
+        model (str, optional): The model to use for extraction. Defaults to DEFAULT_MODEL.
 
     Returns:
-        list[EvaluationEvent] | None: The evaluation events or None if the
-        process failed.
+        ResponseBody: The response containing the extracted relations and next action.
     """
 
     query = data.query  # relation query to extract
@@ -89,11 +89,7 @@ models = None
 @get("/models/", sync_to_thread=False)
 @log_func()
 def get_models() -> list[str]:
-    """Return a list of all available models.
-
-    Returns:
-        list[str]: List of available models.
-    """
+    """Return a list of all available models."""
 
     global models
 

@@ -27,6 +27,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
     return
   }
 
+  // response object to send it to the API server
   const processRequest: ProcessRequestBody = {
     data: webpageData,
     query: request.query,
@@ -35,6 +36,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
   let process: Response = null;
 
   try {
+    // send request to `process` endpoint
     process = await fetch(`http://localhost:8000/process?model=${request.model}`, {
       method: "POST",
       headers: {
@@ -48,14 +50,15 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
   }
 
   if (!process.ok) {
+    // error while processing
     res.send({ error: process.statusText, isComplete: false })
     return
   }
 
+  // response from the API server
   const processResponse: ProcessResponseBody = await process.json()
 
-  console.debug("processResponse =", processResponse);
-
+  // response object to send it back to the extension page
   const response: ResponseBody = {
     results: processResponse.results,
     confidenceLevel: processResponse.confidence_level,
@@ -67,6 +70,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
     // no next action, process is complete
     res.send({ ...response, isComplete: true })
   } else {
+    // next action exists, execute action
     const executeActionResponse = await sendToContentScript<
       ExecuteActionRequestBody, ExecuteActionResponseBody
     >({
@@ -77,7 +81,7 @@ const handler: PlasmoMessaging.MessageHandler<RequestBody, ResponseBody> = async
       }
     })
 
-    // action executed, process is not complete
+    // action executed, continue process
     res.send({ ...response, actionResult: executeActionResponse })
   }
 }

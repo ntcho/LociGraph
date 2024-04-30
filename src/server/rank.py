@@ -49,7 +49,7 @@ def rank(
         query (RelationQuery): The relation query to rank elements.
 
     Returns:
-        tuple[list[Element], list[ActionElement]]: The ranked elements and action elements.
+        list[Element], list[ActionElement]: The ranked elements and action elements.
     """
 
     keywords: list[tuple[str, Relevancy]] = get_top_keywords(query, data.title)
@@ -60,7 +60,9 @@ def rank(
     return elements, action_elements
 
 
-def get_top_keywords(query: RelationQuery, title: str | None, k: int = 25) -> list[tuple[str, Relevancy]]:
+def get_top_keywords(
+    query: RelationQuery, title: str | None, k: int = 25
+) -> list[tuple[str, Relevancy]]:
     """Get the top K keywords from the given list of keywords.
 
     Args:
@@ -352,10 +354,10 @@ def init_expansion():
 @log_func()
 def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
     """Find synonyms, related words, and aliases of the given keywords from
-    WikiData and Wordnet.
+    Wikidata and Wordnet.
 
     Note:
-        WikiData aliases are generally more accurate, but Wordnet is added to
+        Wikidata aliases are generally more accurate, but Wordnet is added to
         capture all possible synonyms and related words.
 
     Args:
@@ -376,7 +378,7 @@ def expand_keywords(keywords: list[str]) -> list[tuple[str, Relevancy]]:
 
     for keyword in keywords:
 
-        # add all WikiData property aliases
+        # add all Wikidata property aliases
         try:
             log.info(f"found alias {pformat(index[keyword])}")
             

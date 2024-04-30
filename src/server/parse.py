@@ -33,7 +33,8 @@ all_rules = None
 
 @log_func()
 def parse(data: WebpageData) -> ParsedWebpageData:
-    """Parse the elements and actions from the given webpage data.
+    """Parse the elements and actions from the given webpage data and simplify the
+    DOM tree.
 
     Args:
         data (WebpageData): Webpage data to parse
@@ -54,6 +55,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
 
     log.debug(f"Parsed HTML")
 
+    # parse the title of the webpage
     title = " ".join(html.xpath("//title/text()"))
     title = title if len(title) > 0 else None
 
@@ -63,6 +65,7 @@ def parse(data: WebpageData) -> ParsedWebpageData:
     global all_rules
     all_rules = parse_css_to_ast(html.xpath("//style"))
 
+    # clean and simplify the DOM tree
     html, tree = flag_noise_elements(html, tree)
     html, tree = flag_action_elements(html, tree)
     html, tree = remove_noise_elements(html, tree)
@@ -257,9 +260,6 @@ def flag_action_elements(
     Args:
         html (HtmlElement): html element of the HTML
         tree (_ElementTree): Element tree of the HTML
-
-    Returns:
-        list[ActionElement]: List of interactable elements
     """
 
     ### * Extract all interactable elements from the HTML
@@ -287,6 +287,19 @@ def flag_action_elements(
 
     log.trace(f"Extracted LINK elements [{len(links)} elements]")
 
+    # * Extract BUTTON elements
+    # all <button> element with non-empty text content
+    buttons.extend(html.xpath("//button[string-length(text()) > 0]"))
+    # all <input> elements with button type attributes
+    buttons.extend(html.xpath(f"//input[{input_button_selector}]"))
+    # all elements with click event attributes
+    buttons.extend(html.xpath(f"//*[{click_event_selector}]"))
+    # all elements with ARIA role of button
+    for role in button_aria_widget_roles:
+        buttons.extend(html.xpath(f"//*[@role='{role}']"))
+
+    log.trace(f"Extracted BUTTON elements [{len(buttons)} elements]")
+
     # * extract INPUT elements
     # all <input> elements except hidden and button types
     inputs.extend(
@@ -300,26 +313,13 @@ def flag_action_elements(
 
     log.trace(f"Extracted INPUT elements [{len(inputs)} elements]")
 
-    # * Extract BUTTON elements
-    # all <button> element with non-empty text content
-    buttons.extend(html.xpath("//button[string-length(text()) > 0]"))
-    # all elements with click event attributes
-    buttons.extend(html.xpath(f"//*[{click_event_selector}]"))
-    # all <input> elements with button type attributes
-    buttons.extend(html.xpath(f"//input[{input_button_selector}]"))
-    # all elements with ARIA role of button
-    for role in button_aria_widget_roles:
-        buttons.extend(html.xpath(f"//*[@role='{role}']"))
-
-    log.trace(f"Extracted BUTTON elements [{len(buttons)} elements]")
-
     # * Extract SELECT elements
     # dropdowns.extend(html.xpath("//select")) # FUTURE: add support for <select> tags
 
     action_elements: dict[ActionElementType, list[HtmlElement]] = {
-        "INPUT": inputs,
-        "BUTTON": buttons,
         "LINK": links,
+        "BUTTON": buttons,
+        "INPUT": inputs,
     }
 
     # add original xpath to elements to preserve after cleaning
