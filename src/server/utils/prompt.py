@@ -340,7 +340,7 @@ You can take these actions:
 
     CLICK [X] - click element with id X. You can only click on LINK and BUTTON!
     TYPE [X] 'text' - type the specified text into INPUT element with id X.
-    TYPESUBMIT [X] 'text' - same as TYPE, followed by an ENTER key press to submit. Use this for search inputs.
+    TYPESUBMIT [X] 'text' - same as TYPE, followed by an ENTER key press to submit forms, such as search inputs.
 
 LINK, INPUT, BUTTON elements are represented like this:
 
