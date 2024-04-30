@@ -130,6 +130,7 @@ def get_xpath_queries(
     results: list[tuple[str, list[str], Relevancy]] = []  # [(query, relevance), ...]
 
     for keyword_group, relevance in keywords_by_relevance:
+        keyword_group = list(set(keyword_group))
         xpath_query = get_keyword_xpath_query(keyword_group)
         if xpath_query is not None:
             results.append((xpath_query, keyword_group, relevance))
