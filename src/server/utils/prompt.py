@@ -340,7 +340,7 @@ You can take these actions:
 
     CLICK [X] - click element with id X. You can only click on LINK and BUTTON!
     TYPE [X] 'text' - type the specified text into INPUT element with id X.
-    TYPESUBMIT [X] 'text' - same as TYPE, except this command presses ENTER to submit the form, such as a search input.
+    TYPESUBMIT [X] 'text' - same as TYPE, followed by an ENTER key press to submit. Use this for search inputs.
 
 LINK, INPUT, BUTTON elements are represented like this:
 
@@ -355,13 +355,13 @@ The following are some examples:
 Page URL: https://gmail.com
 Page title: `Inbox - Gmail`
 Actions:
-- [1] BUTTON 'Compose'
-- [2] INPUT 'Search mail'
+- [1] INPUT 'Search mail'
+- [2] BUTTON 'Compose'
 - [3] LINK 'Inbox' (href='/inbox')
 - [4] LINK 'Sent' (href='/sent')
 Objective: Find the value of attribute `date of birth` of entity `Alex`.
-Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for emails related to Alex. We can search with the query `Alex` by typing it in the search mail input. Therefore, I will issue the command `TYPE [2] 'Alex'`.
-Command: TYPESUBMIT [2] 'Alex'
+Reasoning: Let's think step by step. We need to find the date of birth of Alex. Since the current page is Gmail inbox, we should start by searching for emails related to Alex. We can search `Alex` in the search input. Therefore, I will issue the command `TYPESUBMIT [1] 'Alex'`.
+Command: TYPESUBMIT [1] 'Alex'
 ======
 
 Page URL: https://wikipedia.org/en/Alex
