@@ -157,11 +157,8 @@ function IndexSidePanel() {
           document.getElementById("process-button")?.click()
         }, 3000)
       } else {
-        console.log("Batch processing completed")
-        // clear queue and reset
-        setEntity("")
-        setAttribute("")
-        setContinuous(false)
+        // do nothing if query is empty or completed
+        console.log("No more queries to process.")
       }
     }
   }, [queue, continuous])
