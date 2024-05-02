@@ -1,22 +1,12 @@
+<img align="left" width="48" height="auto" loading="lazy" alt="LociGraph icon" src="{{ '/assets/icon.png' | relative_url }}">
+
 # LociGraph
 
 > AI Agent Framework for Browser-based Knowledge Graph Construction
 
+[Nathan Cho](https://ntcho.me)
+
 [Paper](https://dub.sh/locigraph-paper) | [Code](https://dub.sh/locigraph) | [Demo](https://dub.sh/locigraph-demo)
-
-<img loading="lazy" alt="LociGraph icon" src="{{ '/assets/icon.png' | relative_url }}" width="25%" height="auto">
-
-<div style="width: 90%; max-width: 900px; margin: auto; text-align: center; font-size: 18pt">
-  <div style="display: flex; justify-content: space-between;">
-    <a href="https://ntcho.me">Nathan Cho</a>
-  </div>
-</div>
-
-
-<!-- Authors can be improved with pictures similar to /people -->
-
-<!-- <img src="{{ '/assets/images/webnav.demo.svg' | relative_url }}" style="width: 90%; max-width: 900px; align-content: center; margin: auto; display: flex" alt="A diagram displaying a conversation between a navigator and instructor."> -->
-
 
 ## About LociGraph
 
@@ -34,17 +24,6 @@
 ## *Browser-based knowledge graph construction*: What is it exactly?
 
 *Browser-based knowledge graph construction* is a task where an agent browses the web using the user's browser to find a webpage containing the relevant information and constructs a knowledge graph.
-
-<div style="display: flex; justify-content: space-between; margin-bottom: 1em;">
-  <video loop autoplay muted controls style="width: 72%; height: auto; margin-right: 2%;">
-    <source src="{{ '/assets/videos/booking.1.vcglzhn.mp4' | relative_url }}" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
-
-  <div style="width: 28%;">
-    <img src="{{'/assets/images/booking.1.vcglzhn.messages.webp' | relative_url}}" style="width: 100%; height: auto;" alt="A diagram displaying a conversation between a navigator and instructor.">
-  </div>
-</div>
 
 ## Can we download LociGraph now?
 
