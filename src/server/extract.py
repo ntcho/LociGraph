@@ -23,7 +23,19 @@ def extract(
     model_id: str = DEFAULT_MODEL,
     mock_response: str | None = read_mock_response("data/mock_response_extract.txt"),
 ) -> list[Relation]:
-    """Extract relation triplets from the given elements."""
+    """Extract relation triplets from the given elements.
+
+    Args:
+        elements (list[Element]): List of elements to extract relations from.
+        query (RelationQuery): The query of relations to extract.
+        title (str): The title of the webpage.
+        model_id (str): The ID of the LLM model to use for extraction.
+        mock_response (str): The mock response to use for testing.
+
+    Returns:
+        list[Relation]: List of extracted relations triplets or empty list if the
+        extraction failed.
+    """
 
     results: list[Relation] = []
 
@@ -71,6 +83,7 @@ def extract_mrebel(elements: list[Element], title: str | None) -> list[Relation]
         contents = [
             e.content
             for e in elements
+            # only extract relations from elements with content and high relevancy
             if e.content is not None and e.getrelevancy() > 0.5
         ]
 

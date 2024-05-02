@@ -24,13 +24,17 @@ def evaluate(
     model_id: str = DEFAULT_MODEL,
     mock_response: str | None = read_mock_response("data/mock_response_evaluate.txt"),
 ) -> tuple[bool, list[Relation]]:
-    """Evaluate the extracted relations and determine if the extraction is complete.
+    """Evaluate the extracted relations and determine if the query is completed.
 
     Args:
-        query (RelationQuery): The query of relations to extract.
-        results (list[Relation]): The extracted relations to evaluate.
-        model_id (str, optional): The model ID to use for evaluation. Defaults to "gemini/gemini-pro".
-        mock_response (str | None, optional): The mock response to use for evaluation. Defaults to None.
+        query (RelationQuery): The query of relations to evaluate.
+        results (list[Relation]): The list of relations to evaluate.
+        model_id (str): The ID of the LLM model to use for evaluation.
+        mock_response (str): The mock response to use for testing.
+
+    Returns:
+        bool, list[Relation]: A boolean indicating whether the query is completed and
+        a list of evaluated relations.
     """
 
     try:

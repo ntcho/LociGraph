@@ -26,12 +26,16 @@ def act(
     """Predict the next action to take based on the given actions and query.
 
     Args:
-        actions (list[ActionElement]): The list of available actions.
-        query (RelationQuery): The query of relations to extract.
+        actions (list[ActionElement]): List of actions to predict from.
+        query (RelationQuery): The query of relations to act on.
+        previous_actions (list[str]): List of previous actions.
         url (str): The URL of the webpage.
-        title (str | None): The title of the webpage.
-        model_id (str, optional): The model ID to use for prediction. Defaults to "gemini/gemini-pro".
-        mock_response (str | None, optional): The mock response to use for prediction. Defaults to None.
+        title (str): The title of the webpage.
+        model_id (str): The ID of the LLM model to use for action prediction.
+        mock_response (str): The mock response to use for testing.
+
+    Returns:
+        Action: The predicted action to take.
     """
 
     try:
