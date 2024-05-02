@@ -1,24 +1,8 @@
----
-permalink: /
-layout: splash
-header:
-    # overlay_color: rgb(237, 27, 47)
-    overlay_color: rgb(180, 27, 47)
-    actions:
-        - label: "Paper"
-          url: https://dub.sh/locigraph-paper
-          icon: "fas fa-book"
-        - label: "Code"
-          url: https://dub.sh/locigraph
-          icon: "fab fa-github"
-        - label: "Video"
-          url: https://dub.sh/locigraph-demo
-          icon: "fas fa-video"
+# LociGraph
 
-title: "LociGraph"
-excerpt: "AI Agent Framework for Browser-based Knowledge Graph Construction"
-# webpage adopted from https://github.com/McGill-NLP/weblinx/blob/main/docs/_pages/home.md
----
+> AI Agent Framework for Browser-based Knowledge Graph Construction
+
+[Paper](https://dub.sh/locigraph-paper) | [Code](https://dub.sh/locigraph) | [Demo](https://dub.sh/locigraph-demo)
 
 <img loading="lazy" alt="LociGraph icon" src="{{ '/assets/icon.png' | relative_url }}" width="25%" height="auto">
 
