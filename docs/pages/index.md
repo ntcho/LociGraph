@@ -1,5 +1,5 @@
-<h1 style="display: flex; align-items: center; gap: 4;">
-  <img style="display: inline-block;" width="42" height="auto" loading="lazy" alt="LociGraph Icon" src="{{ '/assets/icon.png' | relative_url }}">
+<h1 style="display: flex; align-items: center;">
+  <img style="display: inline-block; margin-right: 0.7rem;" width="36" height="auto" loading="lazy" alt="LociGraph Icon" src="{{ '/assets/icon.png' | relative_url }}">
   Locigraph
 </h1>
 
@@ -7,7 +7,7 @@
 
 [Paper](https://dub.sh/locigraph-paper) \| [Code](https://dub.sh/locigraph) \| [Demo](https://dub.sh/locigraph-demo) \| [Author](https://ntcho.me)
 
-<iframe style="width: 100%; aspect-ratio: 16 / 9;" src="https://www.youtube-nocookie.com/embed/ZYut9qmtAlk?si=71ksIIhLfh_aDQEx" title="LociGraph Video Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe style="width: 100%; aspect-ratio: 16 / 10;" src="https://www.youtube-nocookie.com/embed/ZYut9qmtAlk?si=71ksIIhLfh_aDQEx" title="LociGraph Video Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## *Browser-based knowledge graph construction*: What is it exactly?
 
